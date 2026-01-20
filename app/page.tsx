@@ -89,32 +89,29 @@ export default function Home() {
 
   const updateWaveData = (beachName: string, allData: ApiPointData[]) => {
     const target = allData.find(d => d.beach === beachName);
-    if (!target) return;
+    if (!target || !target.hourly) return;
 
-    // HourlyデータをWaveData形式に変換 (直近4〜5個を抽出したり、重要な時間帯を抽出)
-    // ここではAPIから返ってきたhourlyをそのまま使う（ただし数が多すぎるとUI崩れるかもなので調整）
+    // HourlyデータをWaveData形式に変換
     const now = new Date();
     
     // 表示用に「現在」「3時間後」「6時間後」「9時間後」などをピックアップ
     const formattedHourly: WaveData[] = target.hourly
-      .filter((h) => new Date(h.time) >= now) // 未来のみ
+      .filter((h) => h && h.time && new Date(h.time) >= now) // 未来のみ
       .filter((_, i) => i % 3 === 0) // 3時間おき
       .slice(0, 4) // 4つだけ
       .map((h, i) => ({
         id: `${target.id}-h-${i}`,
         beach: target.beach,
-        height: h.waveRange, // チャート用の範囲文字列 (例: 0.9-1.2m)
-        period: h.period,
-        windSpeed: h.windSpeed,
-        windDirection: h.windDir,
-        temperature: target.temperature,
-        quality: h.quality,
-        time: new Date(h.time).toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' }),
+        height: h.waveLabel || '-',
+        period: h.period || 0,
+        windSpeed: h.windSpeed || 0,
+        windDirection: h.windDir || '-',
+        temperature: target.temperature || 0,
+        quality: h.quality || 'fair',
+        time: h.time ? new Date(h.time).toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' }) : '--:--',
         nextUpdate: '---'
       }));
     
-    // もし未来データがなければ（夜遅くなど）、そのまま全部出すか調整
-    // ここでは単純に代入
     if (formattedHourly.length > 0) {
         setWaveData(formattedHourly);
     } else {
@@ -122,13 +119,13 @@ export default function Home() {
          const fallback: WaveData[] = target.hourly.slice(0,4).map((h, i) => ({
             id: `${target.id}-h-${i}`,
             beach: target.beach,
-            height: h.waveRange,
-            period: h.period,
-            windSpeed: h.windSpeed,
-            windDirection: h.windDir,
-            temperature: target.temperature,
-            quality: h.quality,
-            time: new Date(h.time).toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' }),
+            height: h.waveLabel || '-',
+            period: h.period || 0,
+            windSpeed: h.windSpeed || 0,
+            windDirection: h.windDir || '-',
+            temperature: target.temperature || 0,
+            quality: h.quality || 'fair',
+            time: h.time ? new Date(h.time).toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' }) : '--:--',
             nextUpdate: '---'
         }));
         setWaveData(fallback);

@@ -19,7 +19,8 @@ export const windDirectionMap: Record<string, string> = {
 };
 
 // 方角を16方位の日本語に変換
-export function convertWindDirection(direction: string): string {
+export function convertWindDirection(direction: string | null | undefined): string {
+  if (!direction) return '-';
   return windDirectionMap[direction.toUpperCase()] || direction;
 }
 
