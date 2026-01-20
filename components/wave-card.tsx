@@ -32,9 +32,17 @@ const qualityBgColors = {
   poor: 'bg-red-500',
 };
 
+const qualityLabels = {
+  excellent: '最高',
+  good: '良い',
+  fair: '普通',
+  poor: '悪い',
+};
+
 export default function WaveCard({ wave, isExpanded, onExpand }: WaveCardProps) {
   const qColor = qualityColors[wave.quality];
   const qBgColor = qualityBgColors[wave.quality];
+  const qLabel = qualityLabels[wave.quality];
 
   return (
     <button
@@ -54,7 +62,7 @@ export default function WaveCard({ wave, isExpanded, onExpand }: WaveCardProps) 
           </p>
         </div>
         <div className={`px-3 py-1 rounded text-xs font-semibold text-white ${qBgColor}`}>
-          {wave.quality.charAt(0).toUpperCase() + wave.quality.slice(1)}
+          {qLabel}
         </div>
       </div>
 

@@ -209,10 +209,10 @@ export default function Home() {
                   <div className="flex justify-between items-center">
                     <span className="text-muted-foreground text-sm">コンディション</span>
                     <span className="px-3 py-1 rounded text-xs font-semibold bg-accent text-accent-foreground">
-                      {currentCondition.quality === 'excellent' && '優'}
-                      {currentCondition.quality === 'good' && '良'}
-                      {currentCondition.quality === 'fair' && '中'}
-                      {currentCondition.quality === 'poor' && '悪'}
+                      {currentCondition.quality === 'excellent' && '最高'}
+                      {currentCondition.quality === 'good' && '良い'}
+                      {currentCondition.quality === 'fair' && '普通'}
+                      {currentCondition.quality === 'poor' && '悪い'}
                     </span>
                   </div>
                 </div>
