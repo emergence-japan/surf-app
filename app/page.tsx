@@ -63,16 +63,22 @@ export default function Home() {
       setIsLoading(true);
       try {
         const res = await fetch('/api/forecast');
-        const data: ApiPointData[] = await res.json();
-        setAllBeachesData(data);
-        if (data.length > 0 && !selectedBeach) {
-          setSelectedBeach(data[0].beach);
-        } else if (selectedBeach) {
-           // 既存の選択があればデータを更新
-           updateWaveData(selectedBeach, data);
+        const data = await res.json();
+        if (Array.isArray(data)) {
+          setAllBeachesData(data);
+          if (data.length > 0 && !selectedBeach) {
+            setSelectedBeach(data[0].beach);
+          } else if (selectedBeach) {
+             // 既存の選択があればデータを更新
+             updateWaveData(selectedBeach, data);
+          }
+        } else {
+          console.error('API returned non-array data:', data);
+          setAllBeachesData([]);
         }
       } catch (error) {
         console.error('Failed to fetch forecast:', error);
+        setAllBeachesData([]);
       } finally {
         setIsLoading(false);
       }
@@ -82,12 +88,13 @@ export default function Home() {
 
   // 選択変更時にデータを整形して更新
   useEffect(() => {
-    if (selectedBeach && allBeachesData.length > 0) {
+    if (selectedBeach && Array.isArray(allBeachesData) && allBeachesData.length > 0) {
       updateWaveData(selectedBeach, allBeachesData);
     }
   }, [selectedBeach, allBeachesData]);
 
   const updateWaveData = (beachName: string, allData: ApiPointData[]) => {
+    if (!Array.isArray(allData)) return;
     const target = allData.find(d => d.beach === beachName);
     if (!target || !target.hourly) return;
 
@@ -133,9 +140,9 @@ export default function Home() {
   };
   
   // 現在のコンディション（選択されたビーチの最新状態）
-  // waveData[0] だと「直近の3時間後」になってしまう可能性があるので、
-  // allBeachesDataから直接現在のデータを取る
-  const currentCondition = allBeachesData.find(d => d.beach === selectedBeach);
+  const currentCondition = Array.isArray(allBeachesData) 
+    ? allBeachesData.find(d => d.beach === selectedBeach)
+    : null;
 
   return (
     <main className="min-h-screen bg-background">

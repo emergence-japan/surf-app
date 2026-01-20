@@ -46,7 +46,6 @@ function calculateEffectiveHeight(swellHeight: number | null, swellDir: string, 
     attenuation = 0.1;
   }
 
-  // 周期（Period）が長いほど、回り込みやすいため少し補正を入れることも可能ですが、まずはシンプルに。
   return swellHeight * attenuation;
 }
 
@@ -107,7 +106,18 @@ function checkBestSwell(bestSwell: string | undefined, currentDirStr: string): b
 export async function GET() {
   try {
     const results = await Promise.all(surfPoints.map(async (point) => {
-      // ... (Request A, B fetch logic remains same)
+      const windUrl = `https://api.open-meteo.com/v1/forecast?latitude=${point.lat}&longitude=${point.lon}`
+        + `&current=wind_speed_10m,wind_direction_10m,temperature_2m,visibility,cloud_cover`
+        + `&hourly=wind_speed_10m,wind_direction_10m,temperature_2m`
+        + `&models=jma_msm,gfs_seamless` 
+        + `&timezone=Asia%2FTokyo`;
+      
+      const waveUrl = `https://marine-api.open-meteo.com/v1/marine?latitude=${point.lat}&longitude=${point.lon}`
+        + `&current=wave_height,wave_direction,wave_period`
+        + `&hourly=wave_height,wave_direction,wave_period`
+        + `&models=best_match,gwam`
+        + `&timezone=Asia%2FTokyo`;
+
       const [windRes, waveRes] = await Promise.all([
         fetch(windUrl).then(res => res.json()),
         fetch(waveUrl).then(res => res.json())
@@ -118,12 +128,11 @@ export async function GET() {
         return null;
       }
 
-      // --- Data Coalescing (Existing logic) ---
       let curWave = waveRes.current.wave_height;
       if (curWave === null && waveRes.hourly.wave_height_gwam) curWave = waveRes.hourly.wave_height_gwam[0];
       let curWaveDir = waveRes.current.wave_direction;
       if (curWaveDir === null && waveRes.hourly.wave_direction_gwam) curWaveDir = waveRes.hourly.wave_direction_gwam[0];
-      let curWindSpd = windRes.current.wind_speed_10m; // km/h
+      let curWindSpd = windRes.current.wind_speed_10m; 
       let curWindDir = windRes.current.wind_direction_10m;
       let curTemp = windRes.current.temperature_2m;
       const curVisibility = windRes.current.visibility; 
@@ -133,8 +142,6 @@ export async function GET() {
       const windDirStr = degreesToDir(curWindDir);
       const waveDirStr = degreesToDir(curWaveDir);
       
-      // --- New Assessment Logic ---
-      // 外洋のうねりから、ビーチに届く有効な波高を計算
       const effectiveHeight = calculateEffectiveHeight(curWave, waveDirStr, point.beachFacing);
       const waveBase = getWaveBaseScore(effectiveHeight);
       
@@ -143,7 +150,6 @@ export async function GET() {
       
       const finalQuality = calculateQuality(waveBase.score, windEffect, isBestSwell);
 
-      // Hourly Data refinement
       const hWaveHeight = waveRes.hourly.wave_height_best_match || waveRes.hourly.wave_height_gwam;
       const hWavePeriod = waveRes.hourly.wave_period_best_match || waveRes.hourly.wave_period_gwam;
       const hWaveDir = waveRes.hourly.wave_direction_best_match || waveRes.hourly.wave_direction_gwam;
@@ -153,21 +159,17 @@ export async function GET() {
       const hourlyData = waveRes.hourly.time.slice(0, 24).map((time: string, i: number) => {
           const hSwellHeight = hWaveHeight[i];
           const hWDirStr = degreesToDir(hWaveDir[i]);
-          
-          // 各時間帯でも有効波高を計算
           const hEffectiveHeight = calculateEffectiveHeight(hSwellHeight, hWDirStr, point.beachFacing);
           const hWBase = getWaveBaseScore(hEffectiveHeight);
-          
           const hWindDirStr = degreesToDir(hWindDir[i]);
           const hWindSpdMs = hWindSpeed[i] ? hWindSpeed[i] / 3.6 : 0;
-          
           const hIsBestSwell = checkBestSwell(point.bestSwell, hWDirStr);
           const hWindEffect = getWindEffect(point.beachFacing, hWindDirStr, hWindSpdMs);
           const hQuality = calculateQuality(hWBase.score, hWindEffect, hIsBestSwell);
 
           return {
               time: time,
-              waveHeight: hEffectiveHeight, // 予測された有効波高をセット
+              waveHeight: hEffectiveHeight,
               waveLabel: hWBase.label,
               waveRange: hWBase.range,
               period: hWavePeriod[i],
@@ -181,7 +183,7 @@ export async function GET() {
         id: point.id,
         beach: point.name,
         height: waveBase.label,
-        heightMeters: effectiveHeight, // 修正: 有効波高を返す
+        heightMeters: effectiveHeight,
         heightRange: waveBase.range,
         period: waveRes.current.wave_period || 0,
         windSpeed: windSpeedMs,
