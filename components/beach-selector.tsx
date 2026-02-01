@@ -1,7 +1,13 @@
 'use client';
 
-import { MapPin, ChevronDown } from 'lucide-react';
-import { useState } from 'react';
+import { MapPin } from 'lucide-react';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 
 interface BeachSelectorProps {
   selectedBeach: string;
@@ -10,50 +16,28 @@ interface BeachSelectorProps {
 }
 
 export default function BeachSelector({ selectedBeach, onSelectBeach, beaches }: BeachSelectorProps) {
-  const [isOpen, setIsOpen] = useState(false);
+  const isLoading = beaches.length === 0;
 
   return (
-    <div className="relative">
-      <button
-        onClick={() => setIsOpen(!isOpen)}
-        className="w-full md:w-96 flex items-center justify-between px-6 py-4 bg-card border border-border rounded-lg hover:border-accent/50 transition-colors"
-      >
-        <div className="flex items-center gap-3">
-          <MapPin size={20} className="text-accent" />
-          <div className="text-left">
+    <Select value={selectedBeach} onValueChange={onSelectBeach} disabled={isLoading}>
+      <SelectTrigger className="w-full md:w-96 h-auto py-3 px-4 bg-card border-border hover:border-accent/50 transition-colors [&>span]:line-clamp-none [&>span]:flex-1">
+        <div className="flex items-center gap-3 text-left">
+          <MapPin size={20} className="text-accent shrink-0" />
+          <div>
             <p className="text-xs text-muted-foreground">Current Beach</p>
-            <p className="text-lg font-light text-foreground">{selectedBeach}</p>
+            <div className="text-lg font-light text-foreground">
+              <SelectValue placeholder={isLoading ? "Loading surf points..." : "Select a beach"} />
+            </div>
           </div>
         </div>
-        <ChevronDown
-          size={20}
-          className={`text-muted-foreground transition-transform ${isOpen ? 'rotate-180' : ''}`}
-        />
-      </button>
-
-      {/* Dropdown Menu */}
-      {isOpen && (
-        <div className="absolute top-full left-0 mt-2 w-full md:w-96 bg-card border border-border rounded-lg shadow-lg z-50 overflow-hidden">
-          <div className="max-h-64 overflow-y-auto">
-            {beaches.map((beach) => (
-              <button
-                key={beach}
-                onClick={() => {
-                  onSelectBeach(beach);
-                  setIsOpen(false);
-                }}
-                className={`w-full text-left px-6 py-3 transition-colors ${
-                  selectedBeach === beach
-                    ? 'bg-accent text-accent-foreground'
-                    : 'text-foreground hover:bg-muted'
-                }`}
-              >
-                {beach}
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
-    </div>
+      </SelectTrigger>
+      <SelectContent>
+        {beaches.map((beach) => (
+          <SelectItem key={beach} value={beach}>
+            {beach}
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
   );
 }

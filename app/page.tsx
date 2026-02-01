@@ -1,281 +1,98 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { Cloud, Wind, Droplets, Eye, Zap, MapPin, ChevronDown, Navigation, ArrowUp } from 'lucide-react';
-import Header from '@/components/header';
-import WaveCard from '@/components/wave-card';
-import ForecastChart from '@/components/forecast-chart';
-import BeachSelector from '@/components/beach-selector';
-import DetailPanel from '@/components/detail-panel';
-import { convertFeetToMeters, convertWindDirection } from '@/lib/converters';
+import { useState, useEffect } from "react"
+import Link from "next/link"
+import { ArrowRight, Droplets, Wind, MapPin } from 'lucide-react'
+import Header from "@/components/header"
+import { useForecast } from "@/context/forecast-context"
+import { convertWindDirection } from "@/lib/converters"
+import VisualWaveHeight from "@/components/visual-wave-height"
 
-interface WaveData {
-  id: string;
-  beach: string;
-  height: string;
-  period: number;
-  windSpeed: number;
-  windDirection: string;
-  temperature: number;
-  quality: 'excellent' | 'good' | 'fair' | 'poor';
-  time: string;
-  nextUpdate: string;
-}
-
-// APIのレスポンス型
-interface ApiPointData extends WaveData {
-  heightMeters: number;
-  heightRange: string;
-  waveDirectionStr: string; 
-  waveDirectionDeg: number; 
-  isBestSwell: boolean;
-  beachFacing: string; // 追加
-  visibility?: number;
-  cloudCover?: number;   
-  hourly: {
-    time: string;
-    waveHeight: number;
-    waveLabel: string;
-    waveRange: string;
-    period: number;
-    windSpeed: number;
-    windDir: string;
-    quality: 'excellent' | 'good' | 'fair' | 'poor';
-  }[];
-}
-
-const dirToDeg: Record<string, number> = {
-  N: 0, NNE: 22.5, NE: 45, ENE: 67.5,
-  E: 90, ESE: 112.5, SE: 135, SSE: 157.5,
-  S: 180, SSW: 202.5, SW: 225, WSW: 247.5,
-  W: 270, WNW: 292.5, NW: 315, NNW: 337.5
-};
-
+// Home component using global context
 export default function Home() {
-  const [selectedBeach, setSelectedBeach] = useState('');
-  const [allBeachesData, setAllBeachesData] = useState<ApiPointData[]>([]);
-  const [waveData, setWaveData] = useState<WaveData[]>([]); // 選択されたビーチの時間予報(チャート用)
-  const [isLoading, setIsLoading] = useState(true);
-  const [expandedCard, setExpandedCard] = useState<string | null>(null);
+  const { allBeachesData, isLoading } = useForecast();
 
-  useEffect(() => {
-    async function fetchData() {
-      setIsLoading(true);
-      try {
-        const res = await fetch('/api/forecast');
-        const data = await res.json();
-        if (Array.isArray(data)) {
-          setAllBeachesData(data);
-          if (data.length > 0 && !selectedBeach) {
-            setSelectedBeach(data[0].beach);
-          } else if (selectedBeach) {
-             // 既存の選択があればデータを更新
-             updateWaveData(selectedBeach, data);
-          }
-        } else {
-          console.error('API returned non-array data:', data);
-          setAllBeachesData([]);
-        }
-      } catch (error) {
-        console.error('Failed to fetch forecast:', error);
-        setAllBeachesData([]);
-      } finally {
-        setIsLoading(false);
-      }
-    }
-    fetchData();
-  }, []);
-
-  // 選択変更時にデータを整形して更新
-  useEffect(() => {
-    if (selectedBeach && Array.isArray(allBeachesData) && allBeachesData.length > 0) {
-      updateWaveData(selectedBeach, allBeachesData);
-    }
-  }, [selectedBeach, allBeachesData]);
-
-  const updateWaveData = (beachName: string, allData: ApiPointData[]) => {
-    if (!Array.isArray(allData)) return;
-    const target = allData.find(d => d.beach === beachName);
-    if (!target || !target.hourly) return;
-
-    // HourlyデータをWaveData形式に変換
-    const now = new Date();
-    
-    // 表示用に「現在」「3時間後」「6時間後」「9時間後」などをピックアップ
-    const formattedHourly: WaveData[] = target.hourly
-      .filter((h) => h && h.time && new Date(h.time) >= now) // 未来のみ
-      .filter((_, i) => i % 3 === 0) // 3時間おき
-      .slice(0, 4) // 4つだけ
-      .map((h, i) => ({
-        id: `${target.id}-h-${i}`,
-        beach: target.beach,
-        height: h.waveLabel || '-',
-        period: h.period || 0,
-        windSpeed: h.windSpeed || 0,
-        windDirection: h.windDir || '-',
-        temperature: target.temperature || 0,
-        quality: h.quality || 'fair',
-        time: h.time ? new Date(h.time).toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' }) : '--:--',
-        nextUpdate: '---'
-      }));
-    
-    if (formattedHourly.length > 0) {
-        setWaveData(formattedHourly);
-    } else {
-        // フォールバック: 直近のデータそのまま
-         const fallback: WaveData[] = target.hourly.slice(0,4).map((h, i) => ({
-            id: `${target.id}-h-${i}`,
-            beach: target.beach,
-            height: h.waveLabel || '-',
-            period: h.period || 0,
-            windSpeed: h.windSpeed || 0,
-            windDirection: h.windDir || '-',
-            temperature: target.temperature || 0,
-            quality: h.quality || 'fair',
-            time: h.time ? new Date(h.time).toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' }) : '--:--',
-            nextUpdate: '---'
-        }));
-        setWaveData(fallback);
-    }
-  };
-  
-  // 現在のコンディション（選択されたビーチの最新状態）
-  const currentCondition = Array.isArray(allBeachesData) 
-    ? allBeachesData.find(d => d.beach === selectedBeach)
-    : null;
+  // Sort by height value (descending)
+  const sortedPoints = [...allBeachesData].sort((a, b) => {
+    return (b.heightMeters || 0) - (a.heightMeters || 0);
+  });
 
   return (
     <main className="min-h-screen bg-background">
       <Header />
-      
+
       <div className="container mx-auto px-4 py-8">
-        {/* Beach Selector */}
-        <div className="mb-12">
-          <BeachSelector 
-            selectedBeach={selectedBeach} 
-            onSelectBeach={setSelectedBeach} 
-            beaches={allBeachesData.map(d => d.beach)}
-          />
+        <div className="flex flex-col items-center justify-center text-center mb-12 animate-in fade-in slide-in-from-bottom-4 duration-700">
+          <h1 className="text-4xl md:text-5xl font-light text-foreground mb-4">
+            Surf Forecast
+          </h1>
+          <p className="text-muted-foreground text-lg max-w-2xl">
+            Real-time wave conditions and detailed forecasts for top surf spots.
+          </p>
         </div>
 
-        {/* Current Wave Status */}
-        {!isLoading && currentCondition && (
-          <div className="mb-12">
-            <h2 className="text-2xl font-light text-foreground mb-6 flex items-center gap-3">
-              現在の波況 ({currentCondition.beach})
-              {currentCondition.isBestSwell && (
-                <span className="bg-teal-100 text-teal-700 text-xs font-bold px-3 py-1 rounded-full border border-teal-200 animate-pulse">
-                  MATCHING SWELL
-                </span>
-              )}
-            </h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div className="bg-card rounded-lg p-8 border border-border">
-                <div className="flex items-start justify-between mb-6">
-                  <div>
-                    <p className="text-muted-foreground text-sm mb-2">波高</p>
-                    <div className="flex items-end gap-2">
-                         <p className="text-5xl font-light text-accent">{currentCondition.height}</p>
-                         <p className="text-sm text-muted-foreground mb-2">({currentCondition.heightRange})</p>
-                    </div>
-                    <div className="flex items-center gap-2 mt-2">
-                       <span className="text-sm font-medium text-foreground">うねりの向き：</span>
-                       <span className="text-sm font-bold text-accent">{convertWindDirection(currentCondition.waveDirectionStr)}</span>
-                       <span className="text-xs text-muted-foreground">({currentCondition.waveDirectionStr})</span>
-                       <ArrowUp 
-                         size={18} 
-                         className="text-accent ml-1 inline-block" 
-                         style={{ transform: `rotate(${currentCondition.waveDirectionDeg + 180}deg)` }} 
-                       />
-                    </div>
-                    {currentCondition.beachFacing && (
-                      <div className="flex items-center gap-2 mt-1">
-                         <span className="text-sm font-medium text-foreground">ビーチの向き：</span>
-                         <span className="text-sm font-bold text-slate-600">{convertWindDirection(currentCondition.beachFacing)}</span>
-                         <span className="text-xs text-muted-foreground">({currentCondition.beachFacing})</span>
-                         <ArrowUp 
-                           size={18} 
-                           className="text-slate-400 ml-1 inline-block" 
-                           style={{ transform: `rotate(${dirToDeg[currentCondition.beachFacing] || 0}deg)` }} 
-                         />
-                      </div>
-                    )}
-                  </div>
-                  <div className="text-accent">
-                    <Droplets size={32} />
-                  </div>
-                </div>
-                <div className="space-y-3">
-                  <div className="flex justify-between items-center">
-                    <span className="text-muted-foreground text-sm">周期</span>
-                    <span className="text-foreground font-medium">{currentCondition.period.toFixed(1)}秒</span>
-                  </div>
-                  <div className="flex justify-between items-center">
-                    <span className="text-muted-foreground text-sm">コンディション</span>
-                    <span className="px-3 py-1 rounded text-xs font-semibold bg-accent text-accent-foreground">
-                      {currentCondition.quality === 'excellent' && '最高'}
-                      {currentCondition.quality === 'good' && '良い'}
-                      {currentCondition.quality === 'fair' && '普通'}
-                      {currentCondition.quality === 'poor' && '悪い'}
-                    </span>
-                  </div>
+        {isLoading ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {/* Skeleton Loading */}
+            {[1, 2, 3, 4, 5, 6].map((i) => (
+              <div key={i} className="h-48 bg-card rounded-lg border border-border animate-pulse flex flex-col justify-between p-6">
+                <div className="h-6 bg-muted rounded w-1/2 mb-4"></div>
+                <div className="space-y-2">
+                  <div className="h-4 bg-muted rounded w-3/4"></div>
+                  <div className="h-4 bg-muted rounded w-1/2"></div>
                 </div>
               </div>
-
-              <div className="bg-card rounded-lg p-8 border border-border">
-                <div className="flex items-start justify-between mb-6">
-                  <div>
-                    <p className="text-muted-foreground text-sm mb-2">気象条件</p>
-                    <p className="text-3xl font-light text-foreground">{currentCondition.temperature}°C</p>
-                  </div>
-                  <div className="text-accent">
-                    <Cloud size={32} />
-                  </div>
-                </div>
-                <div className="space-y-3">
-                  <div className="flex justify-between items-center">
-                    <span className="text-muted-foreground text-sm">風速</span>
-                    <span className="text-foreground font-medium">{currentCondition.windSpeed.toFixed(1)} m/s {convertWindDirection(currentCondition.windDirection)}</span>
-                  </div>
-                  <div className="flex justify-between items-center">
-                    <span className="text-muted-foreground text-sm">次の更新</span>
-                    <span className="text-foreground font-medium">1時間後</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* 24-Hour Forecast */}
-        <div className="mb-12">
-          <h2 className="text-2xl font-light text-foreground mb-6">予報 (3時間ごと)</h2>
-          <div className="bg-card rounded-lg p-8 border border-border">
-            {waveData.length > 0 && <ForecastChart data={waveData} />}
-          </div>
-        </div>
-
-        {/* Hourly Forecast Cards */}
-        <div className="mb-12">
-          <h2 className="text-2xl font-light text-foreground mb-6">詳細予報</h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            {waveData.map((wave) => (
-              <WaveCard 
-                key={wave.id}
-                wave={wave}
-                isExpanded={expandedCard === wave.id}
-                onExpand={() => setExpandedCard(expandedCard === wave.id ? null : wave.id)}
-              />
             ))}
           </div>
-        </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {sortedPoints.map((point) => (
+              <Link key={point.id} href={`/point/${point.id}`}>
+                <div className="group bg-card hover:bg-accent/5 transition-all duration-300 rounded-lg p-6 border border-border hover:border-accent hover:shadow-lg cursor-pointer h-full relative overflow-hidden">
 
-        {/* Additional Info */}
-        <div className="mb-12">
-          <h2 className="text-2xl font-light text-foreground mb-6">詳細情報</h2>
-          {waveData.length > 0 && <DetailPanel data={waveData[0]} />}
-        </div>
+                  {/* Quality Badge */}
+                  <div className={`absolute top-0 right-0 px-3 py-1 text-xs font-bold rounded-bl-lg uppercase tracking-wider
+                      ${point.quality === 'S' ? 'bg-purple-600 text-white' :
+                      point.quality === 'A' ? 'bg-blue-500 text-white' :
+                      point.quality === 'B' ? 'bg-emerald-500 text-white' :
+                      point.quality === 'C' ? 'bg-yellow-500 text-white' : 'bg-slate-500 text-white'
+                    }`}>
+                    {point.quality}
+                  </div>
+
+                  <div className="flex items-center gap-2 mb-4">
+                    <MapPin size={18} className="text-accent" />
+                    <h2 className="text-xl font-medium text-foreground group-hover:text-accent transition-colors">{point.beach}</h2>
+                  </div>
+
+                  <div className="flex justify-between items-center mb-4">
+                    <div className="flex items-center gap-3">
+                      <VisualWaveHeight heightMeters={point.heightMeters || 0} className="w-16 h-16 shrink-0" />
+                      <div>
+                        <p className="text-xs text-muted-foreground mb-1">WAVE HEIGHT</p>
+                        <p className="text-3xl font-light text-foreground leading-none">{point.height}</p>
+                      </div>
+                    </div>
+                    <ArrowRight className="text-muted-foreground group-hover:text-accent transform group-hover:translate-x-1 transition-all" size={24} />
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4 pt-4 border-t border-border">
+                    <div className="flex items-center gap-2 text-muted-foreground">
+                      <Droplets size={16} />
+                      <span className="text-sm">{point.period?.toFixed(1) ?? '-'}s</span>
+                    </div>
+                    <div className="flex items-center gap-2 text-muted-foreground">
+                      <Wind size={16} />
+                      <span className="text-sm">{point.windSpeed?.toFixed(1) ?? '-'}m/s {convertWindDirection(point.windDirection)}</span>
+                    </div>
+                  </div>
+
+                </div>
+              </Link>
+            ))}
+          </div>
+        )}
       </div>
     </main>
-  );
+  )
 }

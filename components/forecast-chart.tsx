@@ -5,19 +5,17 @@ interface ForecastChartProps {
     id: string;
     time: string;
     height: string;
+    heightValue: number;
     period: number;
   }>;
 }
 
 export default function ForecastChart({ data }: ForecastChartProps) {
   // Extract heights as numbers for visualization
-  const heights = data.map((d) => {
-    const min = parseInt(d.height.split('-')[0]);
-    return min;
-  });
+  const heights = data.map((d) => d.heightValue);
 
-  const maxHeight = Math.max(...heights);
-  const minHeight = 2;
+  const maxHeight = Math.max(...heights, 1.0); // 最低でも1.0mのスケーリング
+  const minHeight = 0;
   const range = maxHeight - minHeight;
 
   return (

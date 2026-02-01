@@ -2,16 +2,18 @@
 
 import { ChevronDown, Wind, Droplets } from 'lucide-react';
 import { convertWindDirection } from '@/lib/converters';
+import VisualWaveHeight from './visual-wave-height';
 
 interface WaveCardProps {
   wave: {
     id: string;
     time: string;
     height: string;
+    heightValue?: number;
     period: number;
     windSpeed: number;
     windDirection: string;
-    quality: 'excellent' | 'good' | 'fair' | 'poor';
+    quality: 'S' | 'A' | 'B' | 'C' | 'D';
     temperature: number;
   };
   isExpanded: boolean;
@@ -19,24 +21,27 @@ interface WaveCardProps {
 }
 
 const qualityColors = {
-  excellent: 'bg-accent/20 border-accent',
-  good: 'bg-emerald-500/20 border-emerald-500',
-  fair: 'bg-yellow-500/20 border-yellow-500',
-  poor: 'bg-red-500/20 border-red-500',
+  S: 'bg-purple-500/20 border-purple-500',
+  A: 'bg-accent/20 border-accent',
+  B: 'bg-emerald-500/20 border-emerald-500',
+  C: 'bg-yellow-500/20 border-yellow-500',
+  D: 'bg-slate-500/20 border-slate-500',
 };
 
 const qualityBgColors = {
-  excellent: 'bg-accent',
-  good: 'bg-emerald-500',
-  fair: 'bg-yellow-500',
-  poor: 'bg-red-500',
+  S: 'bg-purple-600',
+  A: 'bg-blue-500',
+  B: 'bg-emerald-500',
+  C: 'bg-yellow-500',
+  D: 'bg-slate-500',
 };
 
 const qualityLabels = {
-  excellent: '最高',
-  good: '良い',
-  fair: '普通',
-  poor: '悪い',
+  S: 'S (最高)',
+  A: 'A (良い)',
+  B: 'B (普通)',
+  C: 'C (小波/風)',
+  D: 'D (悪い)',
 };
 
 export default function WaveCard({ wave, isExpanded, onExpand }: WaveCardProps) {
@@ -47,21 +52,23 @@ export default function WaveCard({ wave, isExpanded, onExpand }: WaveCardProps) 
   return (
     <button
       onClick={onExpand}
-      className={`w-full text-left bg-card rounded-lg border-2 transition-all duration-300 ${
-        isExpanded ? 'border-accent p-6' : `border-border p-4 hover:border-accent/50 ${qColor}`
-      }`}
+      className={`w-full text-left bg-card rounded-lg border-2 transition-all duration-300 ${isExpanded ? 'border-accent p-6' : `border-border p-4 hover:border-accent/50 ${qColor}`
+        }`}
     >
       {/* Header */}
       <div className="flex items-center justify-between mb-4">
-        <div className="flex-1">
-          <p className="text-sm text-muted-foreground mb-1">
-            {wave.time}
-          </p>
-          <p className="text-2xl font-light text-foreground">
-            {wave.height}
-          </p>
+        <div className="flex items-center gap-3 flex-1">
+          <VisualWaveHeight heightMeters={wave.heightValue ?? 0} className="w-14 h-14 shrink-0" />
+          <div>
+            <p className="text-sm text-muted-foreground mb-1">
+              {wave.time}
+            </p>
+            <p className="text-2xl font-light text-foreground leading-none">
+              {wave.height}
+            </p>
+          </div>
         </div>
-        <div className={`px-3 py-1 rounded text-xs font-semibold text-white ${qBgColor}`}>
+        <div className={`px-3 py-1 rounded text-xs font-semibold text-white ${qBgColor} self-start`}>
           {qLabel}
         </div>
       </div>
@@ -102,9 +109,8 @@ export default function WaveCard({ wave, isExpanded, onExpand }: WaveCardProps) 
       <div className="flex justify-center mt-3">
         <ChevronDown
           size={18}
-          className={`text-muted-foreground transition-transform duration-300 ${
-            isExpanded ? 'rotate-180' : ''
-          }`}
+          className={`text-muted-foreground transition-transform duration-300 ${isExpanded ? 'rotate-180' : ''
+            }`}
         />
       </div>
     </button>

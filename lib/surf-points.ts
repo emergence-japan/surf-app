@@ -83,7 +83,7 @@ export const surfPoints: SurfPoint[] = [
   },
   {
     id: 'point-9',
-    name: '徳島 宍喰', 
+    name: '徳島 宍喰',
     lat: 33.56,
     lon: 134.305,
     bestSwell: 'S, SSE, SE, ESE',
@@ -108,103 +108,5 @@ export const surfPoints: SurfPoint[] = [
     note: '太平洋に南向き',
     beachFacing: 'S'
   },
-  {
-    id: 'point-12',
-    name: '仙台 新港',
-    lat: 38.27,
-    lon: 141.02,
-    bestSwell: 'E, ESE, SE, SSE',
-    note: '太平洋に開けた東向き',
-    beachFacing: 'E'
-  },
-  {
-    id: 'point-13',
-    name: '茨城 大洗',
-    lat: 36.31,
-    lon: 140.59,
-    bestSwell: 'NE, ENE, E, ESE',
-    note: '北東うねりに強い',
-    beachFacing: 'E'
-  },
-  {
-    id: 'point-14',
-    name: '千葉北 片貝',
-    lat: 35.509,
-    lon: 140.448,
-    bestSwell: 'ENE, E, ESE, SE, SSE',
-    note: '漁港堤防で南も拾う',
-    beachFacing: 'SE'
-  },
-  {
-    id: 'point-15',
-    name: '千葉北 一宮',
-    lat: 35.37,
-    lon: 140.395,
-    bestSwell: 'ENE, E, ESE, SE',
-    note: '千葉のメイン。東全般',
-    beachFacing: 'E'
-  },
-  {
-    id: 'point-16',
-    name: '千葉北 志田下',
-    lat: 35.358,
-    lon: 140.399,
-    bestSwell: 'ENE, E, ESE, SE',
-    note: '一宮と同様',
-    beachFacing: 'E'
-  },
-  {
-    id: 'point-17',
-    name: '千葉南 和田浦',
-    lat: 35.04,
-    lon: 140.025,
-    bestSwell: 'ESE, SE, SSE, S, SSW',
-    note: '南うねりに敏感',
-    beachFacing: 'SE'
-  },
-  {
-    id: 'point-18',
-    name: '湘南 鵠沼',
-    lat: 35.317,
-    lon: 139.472,
-    bestSwell: 'S, SSW, SW, WSW',
-    note: '台風・低気圧の南うねり必須',
-    beachFacing: 'S'
-  },
-  {
-    id: 'point-19',
-    name: '湘南 七里ヶ浜',
-    lat: 35.305,
-    lon: 139.51,
-    bestSwell: 'S, SSW, SW, WSW',
-    note: '鵠沼と同様',
-    beachFacing: 'S'
-  },
-  {
-    id: 'point-20',
-    name: '静岡 白浜',
-    lat: 34.685,
-    lon: 138.97,
-    bestSwell: 'SE, SSE, S, SSW, SW',
-    note: '伊豆南端、南全般拾う',
-    beachFacing: 'SE'
-  },
-  {
-    id: 'point-21',
-    name: '宮崎 お倉ヶ浜',
-    lat: 32.4,
-    lon: 131.65,
-    bestSwell: 'ENE, E, ESE, SE',
-    note: '日向、東全般に敏感',
-    beachFacing: 'E'
-  },
-  {
-    id: 'point-22',
-    name: '宮崎 木崎浜',
-    lat: 31.826,
-    lon: 131.432,
-    bestSwell: 'ENE, E, ESE, SE, SSE',
-    note: '宮崎市、東全般OK',
-    beachFacing: 'E'
-  }
+
 ];
