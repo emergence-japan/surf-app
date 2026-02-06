@@ -2,30 +2,16 @@
 
 import { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { Cloud, Wind, Droplets, Eye, Zap, MapPin, ChevronDown, Navigation, ArrowUp, Thermometer, ArrowLeft } from 'lucide-react';
+import { Cloud, Wind, Droplets, MapPin, ArrowUp, Thermometer, ArrowLeft, Waves, Clock, Info, ShieldCheck } from 'lucide-react';
 import Header from '@/components/header';
 import WaveCard from '@/components/wave-card';
 import ForecastChart from '@/components/forecast-chart';
 import TideChart from '@/components/tide-chart';
 import WeeklyForecast from '@/components/weekly-forecast';
-import { convertFeetToMeters, convertWindDirection } from '@/lib/converters';
+import { convertWindDirection } from '@/lib/converters';
 import Link from 'next/link';
 import { useForecast } from '@/context/forecast-context';
 import { SurfPointDetail } from '@/lib/types';
-
-interface WaveData {
-    id: string;
-    beach: string;
-    height: string;
-    heightValue: number;
-    period: number;
-    windSpeed: number;
-    windDirection: string;
-    temperature: number;
-    quality: 'S' | 'A' | 'B' | 'C' | 'D';
-    time: string;
-    nextUpdate: string;
-}
 
 const dirToDeg: Record<string, number> = {
     N: 0, NNE: 22.5, NE: 45, ENE: 67.5,
@@ -36,14 +22,11 @@ const dirToDeg: Record<string, number> = {
 
 export default function PointDetail() {
     const params = useParams();
-    const router = useRouter();
     const id = params?.id as string;
-
     const { allBeachesData, isLoading: isContextLoading } = useForecast();
 
     const [target, setTarget] = useState<SurfPointDetail | null>(null);
-    const [currentCondition, setCurrentCondition] = useState<SurfPointDetail | null>(null);
-    const [waveData, setWaveData] = useState<WaveData[]>([]);
+    const [waveData, setWaveData] = useState<any[]>([]);
     const [expandedCard, setExpandedCard] = useState<string | null>(null);
 
     useEffect(() => {
@@ -51,19 +34,15 @@ export default function PointDetail() {
             const foundNode = allBeachesData.find(d => d.id === id);
             if (foundNode) {
                 setTarget(foundNode);
-                setCurrentCondition(foundNode);
                 updateWaveData(foundNode);
             }
         }
     }, [id, allBeachesData, isContextLoading]);
 
-    const isLoading = isContextLoading;
-
     const updateWaveData = (target: SurfPointDetail) => {
         if (!target || !target.hourly) return;
-
         const now = new Date();
-        const formattedHourly: WaveData[] = target.hourly
+        const formattedHourly = target.hourly
             .filter((h) => h && h.time && new Date(h.time) >= now)
             .filter((_, i) => i % 3 === 0)
             .slice(0, 4)
@@ -75,212 +54,260 @@ export default function PointDetail() {
                 period: h.period || 0,
                 windSpeed: h.windSpeed || 0,
                 windDirection: h.windDir || '-',
-                temperature: target.temperature || 0,
                 quality: h.quality || 'C',
                 time: h.time ? new Date(h.time).toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' }) : '--:--',
-                nextUpdate: '---'
             }));
-
-        if (formattedHourly.length > 0) {
-            setWaveData(formattedHourly);
-        } else {
-            const fallback: WaveData[] = target.hourly.slice(0, 4).map((h, i) => ({
-                id: `${target.id}-h-${i}`,
-                beach: target.beach,
-                height: h.waveLabel || '-',
-                heightValue: h.waveHeight || 0,
-                period: h.period || 0,
-                windSpeed: h.windSpeed || 0,
-                windDirection: h.windDir || '-',
-                temperature: target.temperature || 0,
-                quality: h.quality || 'C',
-                time: h.time ? new Date(h.time).toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' }) : '--:--',
-                nextUpdate: '---'
-            }));
-            setWaveData(fallback);
-        }
+        setWaveData(formattedHourly);
     };
 
-    if (isLoading) {
+    if (isContextLoading) {
         return (
-            <div className="min-h-screen bg-background flex items-center justify-center">
-                <p className="text-foreground animate-pulse">Loading point data...</p>
+            <div className="min-h-screen bg-background flex flex-col items-center justify-center">
+                <div className="w-16 h-16 rounded-full border-4 border-blue-100 border-t-blue-500 animate-spin mb-4" />
+                <p className="text-muted-foreground font-light tracking-widest uppercase text-xs">データ取得中...</p>
             </div>
         )
     }
 
-    if (!isContextLoading && !target) {
+    if (!target) {
         return (
-            <div className="min-h-screen bg-background p-8">
+            <div className="min-h-screen bg-background">
                 <Header />
-                <div className="container mx-auto text-center mt-20">
-                    <p className="text-xl text-foreground mb-4">Point not found</p>
-                    <Link href="/" className="text-accent hover:underline">Return to Home</Link>
+                <div className="container mx-auto text-center py-20 px-6">
+                    <h2 className="text-3xl font-light mb-4">スポットが見つかりません</h2>
+                    <p className="text-muted-foreground mb-8">お探しのサーフスポットはデータベースに登録されていないか、移動された可能性があります。</p>
+                    <Link href="/" className="inline-flex items-center gap-2 bg-blue-500 text-white px-6 py-3 rounded-full font-medium hover:bg-blue-600 transition-all shadow-lg shadow-blue-500/20">
+                        <ArrowLeft size={18} />
+                        一覧に戻る
+                    </Link>
                 </div>
             </div>
         )
     }
 
     return (
-        <main className="min-h-screen bg-background">
+        <main className="min-h-screen relative overflow-hidden pb-20">
+            {/* Decorative background elements */}
+            <div className="absolute top-0 right-0 -z-10 w-[1000px] h-[1000px] bg-blue-400/5 blur-[150px] rounded-full" />
+            <div className="absolute bottom-0 left-0 -z-10 w-[800px] h-[800px] bg-cyan-400/5 blur-[120px] rounded-full" />
+
             <Header />
 
-            <div className="container mx-auto px-4 py-8">
-
+            <div className="container mx-auto px-6 py-8">
                 {/* Back Button */}
-                <div className="mb-6">
-                    <Link href="/" className="inline-flex items-center text-muted-foreground hover:text-foreground transition-colors">
-                        <ArrowLeft size={20} className="mr-2" />
-                        Back to List
+                <div className="mb-10">
+                    <Link href="/" className="group inline-flex items-center text-sm font-semibold text-muted-foreground hover:text-blue-500 transition-colors">
+                        <ArrowLeft size={18} className="mr-2 group-hover:-translate-x-1 transition-transform" />
+                        一覧に戻る
                     </Link>
                 </div>
 
-                {/* Current Wave Status */}
-                {currentCondition && (
-                    <div className="mb-12">
-                        <h2 className="text-2xl font-light text-foreground mb-6 flex items-center gap-3">
-                            {currentCondition.beach}
-                            {currentCondition.isBestSwell && (
-                                <span className="bg-teal-100 text-teal-700 text-xs font-bold px-3 py-1 rounded-full border border-teal-200 animate-pulse">
-                                    MATCHING SWELL
-                                </span>
-                            )}
-                        </h2>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                            <div className="bg-card rounded-lg p-8 border border-border">
-                                <div className="flex items-start justify-between mb-6">
-                                    <div>
-                                        <p className="text-muted-foreground text-sm mb-2">波高</p>
-                                        <div className="flex items-end gap-2">
-                                            <p className="text-5xl font-light text-accent">{currentCondition.height}</p>
-                                            <p className="text-sm text-muted-foreground mb-2">({currentCondition.heightRange})</p>
-                                        </div>
-                                        <div className="flex items-center gap-2 mt-2">
-                                            <span className="text-sm font-medium text-foreground">うねりの向き：</span>
-                                            <span className="text-sm font-bold text-accent">{convertWindDirection(currentCondition.waveDirectionStr)}</span>
-                                            <span className="text-xs text-muted-foreground">({currentCondition.waveDirectionStr})</span>
-                                            <ArrowUp
-                                                size={18}
-                                                className="text-accent ml-1 inline-block"
-                                                style={{ transform: `rotate(${currentCondition.waveDirectionDeg + 180}deg)` }}
-                                            />
-                                        </div>
-                                        {currentCondition.beachFacing && (
-                                            <div className="flex items-center gap-2 mt-1">
-                                                <span className="text-sm font-medium text-foreground">ビーチの向き：</span>
-                                                <span className="text-sm font-bold text-slate-600">{convertWindDirection(currentCondition.beachFacing)}</span>
-                                                <span className="text-xs text-muted-foreground">({currentCondition.beachFacing})</span>
-                                                <ArrowUp
-                                                    size={18}
-                                                    className="text-slate-400 ml-1 inline-block"
-                                                    style={{ transform: `rotate(${dirToDeg[currentCondition.beachFacing] || 0}deg)` }}
-                                                />
-                                            </div>
-                                        )}
-                                        <div className="mt-3 pt-3 border-t border-border">
-                                            <p className="text-xs text-muted-foreground mb-1">沖合のうねり (減衰前)</p>
-                                            <div className="flex items-end gap-2">
-                                                <span className="text-xl font-medium text-slate-600">{currentCondition.rawSwellHeight ? currentCondition.rawSwellHeight.toFixed(1) : '-'}m</span>
-                                                <span className="text-xs text-muted-foreground mb-1">Raw Swell</span>
-                                            </div>
-                                        </div>
-                                    </div>
-                                    <div className="text-accent">
-                                        <Droplets size={32} />
-                                    </div>
+                {/* Hero Info */}
+                <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-12">
+                    <div className="space-y-2">
+                        <div className="flex items-center gap-3">
+                            <div className="bg-blue-500/10 text-blue-600 p-2 rounded-xl">
+                                <MapPin size={24} />
+                            </div>
+                            <h1 className="text-4xl md:text-6xl font-light tracking-tight text-foreground leading-none">
+                                {target.beach}
+                            </h1>
+                        </div>
+                        <p className="text-muted-foreground text-lg font-light flex items-center gap-2">
+                            日本 沿岸エリア <span className="w-1 h-1 rounded-full bg-border" /> 
+                            <span className="flex items-center gap-1 text-blue-500">
+                                <ShieldCheck size={16} /> 公認スポット
+                            </span>
+                        </p>
+                    </div>
+
+                    <div className="flex gap-3">
+                        {target.isBestSwell && (
+                            <div className="flex items-center gap-2 bg-gradient-to-r from-indigo-500 to-blue-500 text-white px-5 py-2.5 rounded-2xl text-xs font-bold tracking-widest uppercase shadow-lg shadow-blue-500/20 animate-pulse">
+                                <Waves size={16} />
+                                最高のコンディション
+                            </div>
+                        )}
+                        <div className="flex items-center gap-2 bg-white/80 backdrop-blur-md border border-blue-100 px-5 py-2.5 rounded-2xl text-xs font-bold tracking-widest uppercase text-blue-600">
+                            <Clock size={16} />
+                            最終更新: 12分前
+                        </div>
+                    </div>
+                </div>
+
+                {/* Main Stats Grid */}
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-12">
+                    
+                    {/* Primary Wave Card */}
+                    <div className="lg:col-span-2 glass-card rounded-[2.5rem] p-10 relative overflow-hidden border-white/40">
+                        <div className="absolute top-0 right-0 p-10 opacity-5">
+                            <Waves size={200} />
+                        </div>
+                        
+                        <div className="relative z-10">
+                            <div className="flex items-center justify-between mb-10">
+                                <div className="space-y-1">
+                                    <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-blue-500">主要なうねり</p>
+                                    <h2 className="text-2xl font-semibold">コンディション概要</h2>
                                 </div>
-                                <div className="space-y-3">
-                                    <div className="flex justify-between items-center">
-                                        <span className="text-muted-foreground text-sm">周期</span>
-                                        <span className="text-foreground font-medium">{currentCondition.period?.toFixed(1) ?? '-'}秒</span>
-                                    </div>
-                                    <div className="flex justify-between items-center">
-                                        <span className="text-muted-foreground text-sm">コンディション</span>
-                                        <span className="px-3 py-1 rounded text-xs font-semibold bg-accent text-accent-foreground">
-                                            {currentCondition.quality === 'S' && 'S (最高)'}
-                                            {currentCondition.quality === 'A' && 'A (良い)'}
-                                            {currentCondition.quality === 'B' && 'B (普通)'}
-                                            {currentCondition.quality === 'C' && 'C (小波/風)'}
-                                            {currentCondition.quality === 'D' && 'D (悪い)'}
-                                        </span>
-                                    </div>
+                                <div className={`px-5 py-2 rounded-2xl text-sm font-black tracking-widest uppercase
+                                    ${target.quality === 'S' ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/30' :
+                                    target.quality === 'A' ? 'bg-blue-500 text-white shadow-lg shadow-blue-500/30' :
+                                    target.quality === 'B' ? 'bg-emerald-500 text-white shadow-lg shadow-emerald-500/30' :
+                                    target.quality === 'C' ? 'bg-amber-500 text-white shadow-lg shadow-amber-500/30' : 'bg-slate-500 text-white'}`}>
+                                    評価: {target.quality}
                                 </div>
                             </div>
 
-                            <div className="bg-card rounded-lg p-8 border border-border">
-                                <div className="flex items-start justify-between mb-6">
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-12">
+                                <div className="space-y-8">
                                     <div>
-                                        <p className="text-muted-foreground text-sm mb-2">水温</p>
-                                        <p className="text-3xl font-light text-foreground">{currentCondition.temperature.toFixed(1)}°C</p>
+                                        <p className="text-muted-foreground text-sm font-medium mb-3">波のサイズ</p>
+                                        <div className="flex items-baseline gap-3">
+                                            <p className="text-7xl font-extralight text-foreground tracking-tighter leading-none">{target.height}</p>
+                                            <p className="text-xl text-muted-foreground font-light">{target.heightRange}</p>
+                                        </div>
                                     </div>
-                                    <div className="text-accent">
-                                        <Thermometer size={32} />
+                                    
+                                    <div className="grid grid-cols-2 gap-8">
+                                        <div className="space-y-2">
+                                            <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">周期</p>
+                                            <p className="text-3xl font-light text-foreground">{target.period?.toFixed(1) ?? '-'} <span className="text-sm">秒</span></p>
+                                        </div>
+                                        <div className="space-y-2">
+                                            <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">沖合のうねり</p>
+                                            <p className="text-3xl font-light text-foreground">{target.rawSwellHeight?.toFixed(1) ?? '-'} <span className="text-sm">m</span></p>
+                                        </div>
                                     </div>
                                 </div>
-                                <div className="space-y-3">
-                                    <div className="flex justify-between items-center">
-                                        <span className="text-muted-foreground text-sm">風速</span>
-                                        <span className="text-foreground font-medium">{currentCondition.windSpeed?.toFixed(1) ?? '-'} m/s {convertWindDirection(currentCondition.windDirection)}</span>
+
+                                <div className="space-y-8 bg-blue-50/50 rounded-[2rem] p-8 border border-blue-100/50">
+                                    <div className="flex items-center justify-between">
+                                        <div className="space-y-1">
+                                            <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider">うねりの向き</p>
+                                            <p className="text-lg font-semibold">{convertWindDirection(target.waveDirectionStr)}</p>
+                                        </div>
+                                        <div className="w-12 h-12 bg-white rounded-2xl flex items-center justify-center shadow-sm">
+                                            <ArrowUp size={24} className="text-blue-500 transition-transform duration-1000" style={{ transform: `rotate(${target.waveDirectionDeg + 180}deg)` }} />
+                                        </div>
                                     </div>
-                                    <div className="flex justify-between items-center">
-                                        <span className="text-muted-foreground text-sm">次の更新</span>
-                                        <span className="text-foreground font-medium">1時間後</span>
+                                    
+                                    <div className="h-px bg-blue-100" />
+                                    
+                                    <div className="flex items-center justify-between">
+                                        <div className="space-y-1">
+                                            <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider">岸の向き</p>
+                                            <p className="text-lg font-semibold">{convertWindDirection(target.beachFacing || "N")}</p>
+                                        </div>
+                                        <div className="w-12 h-12 bg-white rounded-2xl flex items-center justify-center shadow-sm">
+                                            <ArrowUp size={24} className="text-slate-400" style={{ transform: `rotate(${dirToDeg[target.beachFacing || "N"] || 0}deg)` }} />
+                                        </div>
                                     </div>
                                 </div>
                             </div>
                         </div>
                     </div>
-                )}
 
-                {/* Tide Chart */}
-                <div className="mb-12">
-                    <h2 className="text-2xl font-light text-foreground mb-6">タイドグラフ (潮汐) - 本日</h2>
-                    <div className="bg-card rounded-lg p-8 border border-border">
-                        {currentCondition && currentCondition.hourly && (
-                            <TideChart
-                                data={currentCondition.hourly
-                                    .filter((h, index) => index < 24)
-                                    .map(h => ({
-                                        time: new Date(h.time).toLocaleTimeString('ja-JP', {
-                                            hour: '2-digit',
-                                            minute: '2-digit',
-                                            hour12: false
-                                        }),
-                                        height: h.tide || 0
-                                    }))
-                                }
-                            />
-                        )}
+                    {/* Wind & Environment Card */}
+                    <div className="glass-card rounded-[2.5rem] p-10 flex flex-col border-white/40">
+                        <div className="flex items-center gap-3 mb-10">
+                            <div className="bg-amber-500/10 text-amber-600 p-2.5 rounded-xl">
+                                <Wind size={20} />
+                            </div>
+                            <h3 className="text-xl font-semibold">周辺環境</h3>
+                        </div>
+
+                        <div className="flex-1 space-y-10">
+                            <div className="space-y-4">
+                                <div className="flex items-center justify-between">
+                                    <p className="text-muted-foreground text-sm font-medium">風の状態</p>
+                                    <span className="text-xs font-bold text-emerald-500 bg-emerald-50 px-3 py-1 rounded-full uppercase">弱いオフショア</span>
+                                </div>
+                                <div className="flex items-baseline gap-2">
+                                    <p className="text-6xl font-extralight text-foreground tracking-tighter leading-none">{target.windSpeed?.toFixed(1) ?? '-'}</p>
+                                    <p className="text-lg text-muted-foreground font-light tracking-tight">m/s {convertWindDirection(target.windDirection)}</p>
+                                </div>
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-6">
+                                <div className="p-6 bg-blue-50/50 rounded-3xl border border-blue-100/50 space-y-2">
+                                    <div className="text-blue-500"><Thermometer size={20} /></div>
+                                    <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">水温</p>
+                                    <p className="text-2xl font-semibold leading-none">{target.temperature.toFixed(1)}°C</p>
+                                </div>
+                                <div className="p-6 bg-cyan-50/50 rounded-3xl border border-cyan-100/50 space-y-2">
+                                    <div className="text-cyan-500"><Droplets size={20} /></div>
+                                    <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">湿度</p>
+                                    <p className="text-2xl font-semibold leading-none">64%</p>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div className="mt-10 p-5 bg-white/50 rounded-2xl border border-blue-50 text-[11px] text-muted-foreground leading-relaxed flex gap-3">
+                            <Info size={16} className="shrink-0 text-blue-400" />
+                            <p>現在の風向きは、このポイントの波の面を整えるのに適したオフショアです。</p>
+                        </div>
                     </div>
                 </div>
 
-                {/* 24-Hour Forecast */}
-                <div className="mb-12">
-                    <h2 className="text-2xl font-light text-foreground mb-6">予報 (3時間ごと)</h2>
-                    <div className="bg-card rounded-lg p-8 border border-border">
-                        {waveData.length > 0 && <ForecastChart data={waveData} />}
+                {/* Tide & Charts */}
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-12">
+                    <div className="glass-card rounded-[2.5rem] p-10 border-white/40">
+                        <div className="flex items-center justify-between mb-8">
+                            <h3 className="text-xl font-semibold tracking-tight">タイドグラフ (潮汐)</h3>
+                            <div className="text-[10px] font-black uppercase tracking-widest text-muted-foreground bg-secondary px-3 py-1 rounded-full">24時間予測</div>
+                        </div>
+                        <div className="h-[300px]">
+                            {target.hourly && (
+                                <TideChart
+                                    data={target.hourly
+                                        .filter((h, index) => index < 24)
+                                        .map(h => ({
+                                            time: new Date(h.time).toLocaleTimeString('ja-JP', {
+                                                hour: '2-digit',
+                                                minute: '2-digit',
+                                                hour12: false
+                                            }),
+                                            height: h.tide || 0
+                                        }))
+                                    }
+                                />
+                            )}
+                        </div>
+                    </div>
+
+                    <div className="glass-card rounded-[2.5rem] p-10 border-white/40">
+                        <div className="flex items-center justify-between mb-8">
+                            <h3 className="text-xl font-semibold tracking-tight">時間別の波予報</h3>
+                            <div className="text-[10px] font-black uppercase tracking-widest text-muted-foreground bg-secondary px-3 py-1 rounded-full">3時間間隔</div>
+                        </div>
+                        <div className="h-[300px]">
+                            {waveData.length > 0 && <ForecastChart data={waveData} />}
+                        </div>
                     </div>
                 </div>
 
-                {/* Weekly Forecast */}
-                <div className="mb-12">
-                    {currentCondition && currentCondition.daily && (
-                        <WeeklyForecast data={currentCondition.daily} />
-                    )}
-                </div>
+                {/* Extended Forecasts */}
+                <div className="space-y-12">
+                    <div className="flex flex-col gap-8">
+                        {target.daily && <WeeklyForecast data={target.daily} />}
+                    </div>
 
-                {/* Hourly Forecast Cards */}
-                <div className="mb-12">
-                    <h2 className="text-2xl font-light text-foreground mb-6">詳細予報</h2>
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                        {waveData.map((wave) => (
-                            <WaveCard
-                                key={wave.id}
-                                wave={wave}
-                                isExpanded={expandedCard === wave.id}
-                                onExpand={() => setExpandedCard(expandedCard === wave.id ? null : wave.id)}
-                            />
-                        ))}
+                    <div className="space-y-8">
+                        <div className="flex items-center gap-3 px-2">
+                            <h3 className="text-sm font-black uppercase tracking-[0.2em] text-muted-foreground">時間別の詳細データ</h3>
+                            <div className="h-px flex-1 bg-blue-100" />
+                        </div>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+                            {waveData.map((wave) => (
+                                <WaveCard
+                                    key={wave.id}
+                                    wave={wave}
+                                    isExpanded={expandedCard === wave.id}
+                                    onExpand={() => setExpandedCard(expandedCard === wave.id ? null : wave.id)}
+                                />
+                            ))}
+                        </div>
                     </div>
                 </div>
             </div >
