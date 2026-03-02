@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { surfPoints } from '@/lib/surf-points';
 import { computeTideHeight } from '@/lib/tide-predictor';
+import { convertWindDirection } from '@/lib/converters';
 
 // 1時間キャッシュ
 export const revalidate = 3600;
@@ -429,7 +430,7 @@ async function processPoint(point: typeof surfPoints[0]) {
       : [];
 
     const conditionSummary = generateConditionSummary({
-      waveDirectionStr: waveDirStr,
+      waveDirectionStr: convertWindDirection(waveDirStr),
       isBestSwell,
       effectiveHeight,
       waveLabel: waveBase.label,
