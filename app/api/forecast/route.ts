@@ -123,9 +123,24 @@ function getWindEffect(beachFacing: string, windDir: string, windSpeed: number):
 }
 
 // 最終的なQualityを決定
-function calculateQuality(baseScore: number, windEffect: number, isBestSwell: boolean): 'S' | 'A' | 'B' | 'C' | 'D' {
+function calculateQuality(
+  baseScore: number,
+  windEffect: number,
+  isBestSwell: boolean,
+  effectiveHeight: number,
+  period: number
+): 'S' | 'A' | 'B' | 'C' | 'D' {
+  // フラットは方向・風に関わらず問答無用でD
+  if (effectiveHeight < 0.2) return 'D';
+
   let finalScore = baseScore + windEffect;
-  if (isBestSwell) finalScore += 1;
+
+  // 周期ペナルティ: 6秒以下の風波はパワーが弱くグレードを下げる
+  if (period > 0 && period <= 6) finalScore -= 1;
+
+  // BESTボーナス: 本物のうねり(8秒以上)かつ波がある場合のみ
+  // ※ checkBestSwell で period < 8 はすでに false になるが念のため二重チェック
+  if (isBestSwell && period >= 8 && baseScore >= 2) finalScore += 1;
 
   if (finalScore >= 5) return 'S';
   if (finalScore >= 4) return 'A';
@@ -236,8 +251,10 @@ function generateConditionSummary(params: {
 }
 
 // ベストスウェル判定
-function checkBestSwell(bestSwell: string | undefined, currentDirStr: string): boolean {
+function checkBestSwell(bestSwell: string | undefined, currentDirStr: string, period: number): boolean {
   if (!bestSwell || !currentDirStr || currentDirStr === '-') return false;
+  // 周期8秒未満の風波はベストうねりとみなさない
+  if (period > 0 && period < 8) return false;
   const candidates = bestSwell.toUpperCase().split(/[\s,、・]+/);
   return candidates.includes(currentDirStr.toUpperCase());
 }
@@ -316,9 +333,10 @@ async function processPoint(point: typeof surfPoints[0]) {
 
     const effectiveHeight = calculateEffectiveHeight(curWave, waveDirStr, point.beachFacing, waveRes.current?.wave_period);
     const waveBase = getWaveBaseScore(effectiveHeight);
-    const isBestSwell = checkBestSwell(point.bestSwell, waveDirStr);
+    const curPeriod = waveRes.current?.wave_period ?? 0;
+    const isBestSwell = checkBestSwell(point.bestSwell, waveDirStr, curPeriod);
     const windEffect = getWindEffect(point.beachFacing, windDirStr, windSpeedMs);
-    const finalQuality = calculateQuality(waveBase.score, windEffect, isBestSwell);
+    const finalQuality = calculateQuality(waveBase.score, windEffect, isBestSwell, effectiveHeight, curPeriod);
 
     // hourlyデータのフォールバックチェーン（null安全）
     const hWaveHeight: (number | null)[] | null =
@@ -359,7 +377,8 @@ async function processPoint(point: typeof surfPoints[0]) {
           const hWBase = getWaveBaseScore(hEffectiveHeight);
           const hWindDirStr = degreesToDir(hWindDir?.[i]);
           const hWindSpdMs = (hWindSpeed?.[i] ?? null) !== null ? (hWindSpeed![i]! / 3.6) : 0;
-          const hIsBestSwell = checkBestSwell(point.bestSwell, hWDirStr);
+          const hPeriod = hWavePeriod?.[i] ?? 0;
+          const hIsBestSwell = checkBestSwell(point.bestSwell, hWDirStr, hPeriod);
           const hWindEffect = getWindEffect(point.beachFacing, hWindDirStr, hWindSpdMs);
 
           // 潮位: 天文潮汐計算（外部API不要・JMA調和定数使用）
@@ -371,10 +390,10 @@ async function processPoint(point: typeof surfPoints[0]) {
             rawWaveHeight: hSwellHeight,
             waveLabel: hWBase.label,
             waveRange: hWBase.range,
-            period: hWavePeriod?.[i] ?? 0,
+            period: hPeriod,
             windSpeed: hWindSpdMs,
             windDir: hWindDirStr,
-            quality: calculateQuality(hWBase.score, hWindEffect, hIsBestSwell),
+            quality: calculateQuality(hWBase.score, hWindEffect, hIsBestSwell, hEffectiveHeight, hPeriod),
             tide: tideHeight
           };
         })
@@ -411,7 +430,7 @@ async function processPoint(point: typeof surfPoints[0]) {
           const dEffectiveHeight = calculateEffectiveHeight(dWaveHeightMax, dWDirStr, point.beachFacing);
           const dWBase = getWaveBaseScore(dEffectiveHeight);
           const dWindDirStr = degreesToDir(dWindDirDom);
-          const dIsBestSwell = checkBestSwell(point.bestSwell, dWDirStr);
+          const dIsBestSwell = checkBestSwell(point.bestSwell, dWDirStr, 0); // dailyは周期データなし
           const dWindEffect = getWindEffect(point.beachFacing, dWindDirStr, dWindSpdMax / 3.6);
 
           return {
@@ -424,7 +443,7 @@ async function processPoint(point: typeof surfPoints[0]) {
             temperatureMax: dSST,
             temperatureMin: dSST,
             weatherCode: dWeatherCode,
-            quality: calculateQuality(dWBase.score, dWindEffect, dIsBestSwell)
+            quality: calculateQuality(dWBase.score, dWindEffect, dIsBestSwell, dEffectiveHeight, 0)
           };
         })
       : [];
