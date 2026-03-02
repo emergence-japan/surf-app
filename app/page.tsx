@@ -2,7 +2,7 @@
 
 import { useState } from "react"
 import Link from "next/link"
-import { Wind, MapPin, Search, Activity, Waves, Timer, Navigation, Zap } from 'lucide-react'
+import { Wind, MapPin, Search, Activity, Waves, Timer, Navigation, ArrowUp, Zap } from 'lucide-react'
 import Header from "@/components/header"
 import { useForecast } from "@/context/forecast-context"
 import { convertWindDirection } from "@/lib/converters"
@@ -211,7 +211,7 @@ export default function Home() {
                           <span className="text-[9px] font-bold uppercase tracking-[0.15em]">うねり</span>
                         </div>
                         <div className="flex items-center gap-2 mt-1">
-                          <Navigation
+                          <ArrowUp
                             size={18}
                             className="text-blue-500 shrink-0"
                             style={{ transform: `rotate(${point.waveDirectionDeg}deg)` }}
