@@ -133,87 +133,105 @@ function calculateQuality(baseScore: number, windEffect: number, isBestSwell: bo
   return 'D';
 }
 
-// コンディション解説文をルールベースで生成
+// コンディション解説文をシナリオベースで生成
+// 各パーツを独立して連結するのではなく、状況を先に判定して
+// そのシナリオに合った1文を返すことで矛盾を防ぐ。
 function generateConditionSummary(params: {
   waveDirectionStr: string;
   isBestSwell: boolean;
   effectiveHeight: number;
+  waveLabel: string;
   period: number;
   windDirStr: string;
   windSpeed: number;
   beachFacing: string;
-  quality: 'S' | 'A' | 'B' | 'C' | 'D';
 }): string {
-  const parts: string[] = [];
+  const { waveDirectionStr, isBestSwell, effectiveHeight, waveLabel,
+          period, windDirStr, windSpeed, beachFacing } = params;
 
-  // ① うねりの状況
-  if (params.effectiveHeight < 0.2) {
-    parts.push('現在ほぼフラットで波はありません。');
-  } else {
-    if (params.isBestSwell) {
-      parts.push(`${params.waveDirectionStr}からのベスト方向のうねりが入っています。`);
-    } else if (params.waveDirectionStr && params.waveDirectionStr !== '-') {
-      parts.push(`${params.waveDirectionStr}からのうねりが届いています。`);
-    }
-
-    // ② 周期
-    if (params.period >= 14) {
-      parts.push(`周期${params.period}秒の長周期うねりでパワーがあります。`);
-    } else if (params.period >= 10) {
-      parts.push(`周期${params.period}秒の中周期うねりです。`);
-    } else if (params.period >= 6) {
-      parts.push(`周期${params.period}秒の風波気味のうねりです。`);
-    }
+  // ---- フラット ----
+  if (effectiveHeight < 0.2) {
+    return 'ほぼフラットです。今日は波はほとんどありません。';
   }
 
-  // ③ 風の状況（ビーチ向きとの角度で判定）
-  const beachIdx = DIRS.indexOf(params.beachFacing as typeof DIRS[number]);
-  const windIdx  = DIRS.indexOf(params.windDirStr  as typeof DIRS[number]);
-
-  if (beachIdx !== -1 && windIdx !== -1 && params.windDirStr !== '-') {
-    let diff = Math.abs(beachIdx - windIdx);
-    if (diff > 8) diff = 16 - diff;
-
-    if (diff >= 6) {
-      // オフショア
-      if (params.windSpeed > 8) {
-        parts.push('オフショアが強すぎて波が吹き上げられています。');
-      } else if (params.windSpeed > 3) {
-        parts.push('オフショアの風が波面を整えています。');
-      } else {
-        parts.push('弱いオフショアで面がきれいです。');
-      }
-    } else if (diff >= 3) {
-      // サイドショア
-      if (params.windSpeed > 7) {
-        parts.push(`強いサイドオンショア（${params.windSpeed.toFixed(1)}m/s）で波面が乱れています。`);
-      } else if (params.windSpeed > 3) {
-        parts.push('サイドからの風でやや波面が乱れています。');
-      }
-      // 弱いサイドは特記なし
-    } else {
-      // オンショア
-      if (params.windSpeed > 8) {
-        parts.push(`強いオンショア（${params.windSpeed.toFixed(1)}m/s）で波はぐちゃぐちゃです。`);
-      } else if (params.windSpeed > 5) {
-        parts.push('オンショアの風で波面が荒れています。');
-      } else if (params.windSpeed > 3) {
-        parts.push('弱いオンショアで波面がやや乱れています。');
-      }
-    }
+  // ---- 風向きの判定 ----
+  const beachIdx = DIRS.indexOf(beachFacing as typeof DIRS[number]);
+  const windIdx  = DIRS.indexOf(windDirStr  as typeof DIRS[number]);
+  let windDiff = -1;
+  if (beachIdx !== -1 && windIdx !== -1 && windDirStr !== '-') {
+    windDiff = Math.abs(beachIdx - windIdx);
+    if (windDiff > 8) windDiff = 16 - windDiff;
   }
 
-  // ④ 総評
-  const verdict: Record<string, string> = {
-    'S': '今日は見逃せないコンディションです！',
-    'A': '良いコンディションです。出動する価値あり。',
-    'B': '平均的なコンディションです。',
-    'C': 'やや厳しいコンディションです。',
-    'D': '今日は見送りが無難です。',
-  };
-  parts.push(verdict[params.quality] ?? '');
+  const isOffshore = windDiff >= 6;
+  const isSide     = windDiff >= 3 && windDiff < 6;
+  const isOnshore  = windDiff >= 0 && windDiff < 3 && windDiff !== -1;
 
-  return parts.filter(Boolean).join(' ');
+  // 周期8秒以上を「うねり」、未満を「風波」と区別
+  const isGroundSwell = period >= 8;
+  // ベストうねりはうねり性のある波にのみ適用
+  const isTrueBestSwell = isBestSwell && isGroundSwell;
+
+  const dir = waveDirectionStr && waveDirectionStr !== '-' ? waveDirectionStr : '';
+  const periodStr = Math.round(period);
+
+  // ---- シナリオ分岐 ----
+
+  // 【強風】どの方向でも8m/s超はNG
+  if (windSpeed > 8) {
+    const windType = isOffshore ? 'オフショア' : isSide ? 'サイドショア' : 'オンショア';
+    return `強い${windType}（${windSpeed.toFixed(1)}m/s）が吹いており、`
+      + `${waveLabel}サイズの波はあるものの波面は荒れています。今日は見送りが無難です。`;
+  }
+
+  // 【オフショア〜8m/s】
+  if (isOffshore) {
+    if (isTrueBestSwell) {
+      return `${dir}からのベストうねり（周期${periodStr}秒）にオフショアが重なり、`
+        + `${waveLabel}の波面がきれいに整っています。絶好のコンディションです！`;
+    }
+    if (isGroundSwell) {
+      return `${dir}からのうねり（周期${periodStr}秒）が届き、`
+        + `オフショアで波面が整っています。${waveLabel}で良好なコンディションです。`;
+    }
+    // 風波 × オフショア: 形は良いがパワー不足
+    return `オフショアで面はきれいですが、周期${periodStr}秒の風波気味の波です。`
+      + `${waveLabel}サイズですが、パワーはいまひとつです。`;
+  }
+
+  // 【オンショア〜8m/s】
+  if (isOnshore) {
+    if (windSpeed > 5) {
+      return `オンショアの風（${windSpeed.toFixed(1)}m/s）で波面が荒れています。`
+        + `${waveLabel}の波はありますが、コンディションは厳しい状況です。`;
+    }
+    if (windSpeed > 3) {
+      return `弱いオンショア（${windSpeed.toFixed(1)}m/s）でやや波面が乱れています。`
+        + `${dir}から${waveLabel}サイズで、形はまずまずです。`;
+    }
+    // ほぼ無風オンショア
+    if (isTrueBestSwell) {
+      return `${dir}からのベストうねり（周期${periodStr}秒）がほぼ無風の中で届いています。`
+        + `${waveLabel}で良好なコンディションです。`;
+    }
+    return `${dir}からのうねりがほぼ無風の中で届いています。${waveLabel}で波面はきれいです。`;
+  }
+
+  // 【サイドショア〜8m/s】
+  if (isSide) {
+    if (windSpeed > 5) {
+      return `サイドからの風（${windSpeed.toFixed(1)}m/s）で波面がやや乱れています。`
+        + `${dir}から${waveLabel}サイズですが形はいまひとつです。`;
+    }
+    if (isTrueBestSwell) {
+      return `${dir}からのベストうねり（周期${periodStr}秒）が入っています。`
+        + `サイドからの弱い風で${waveLabel}、まずまずのコンディションです。`;
+    }
+    return `${dir}からのうねりで${waveLabel}サイズです。サイドの弱い風でまずまずのコンディションです。`;
+  }
+
+  // 【フォールバック: 風向き不明など】
+  return `${dir ? `${dir}から` : ''}${waveLabel}サイズの波が届いています。`;
 }
 
 // ベストスウェル判定
@@ -414,11 +432,11 @@ async function processPoint(point: typeof surfPoints[0]) {
       waveDirectionStr: waveDirStr,
       isBestSwell,
       effectiveHeight,
+      waveLabel: waveBase.label,
       period: waveRes.current?.wave_period ?? 0,
       windDirStr,
       windSpeed: windSpeedMs,
       beachFacing: point.beachFacing,
-      quality: finalQuality,
     });
 
     return {
