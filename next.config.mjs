@@ -1,7 +1,17 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  // Docker/コンテナデプロイ向けの standalone 出力
+  // Vercel へのデプロイでも問題なく動作する
+  output: 'standalone',
+
+  // 画像最適化の設定（Unsplash 等の外部ドメインを許可）
   images: {
-    unoptimized: true,
+    remotePatterns: [
+      {
+        protocol: 'https',
+        hostname: 'images.unsplash.com',
+      },
+    ],
   },
 
   async headers() {
@@ -20,7 +30,7 @@ const nextConfig = {
             key: 'Permissions-Policy',
             value: 'camera=(), microphone=(), geolocation=(self), interest-cohort=()',
           },
-          // HSTS（HTTPS 強制）: 本番環境では max-age を伸ばすこと
+          // HSTS（HTTPS 強制）
           {
             key: 'Strict-Transport-Security',
             value: 'max-age=63072000; includeSubDomains; preload',
@@ -30,12 +40,10 @@ const nextConfig = {
             key: 'Content-Security-Policy',
             value: [
               "default-src 'self'",
-              // Next.js のインラインスクリプト・スタイルを許可
               "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://va.vercel-scripts.com",
               "style-src 'self' 'unsafe-inline'",
-              // Open-Meteo API へのアクセスを許可
               "connect-src 'self' https://api.open-meteo.com https://marine-api.open-meteo.com https://vitals.vercel-insights.com",
-              "img-src 'self' data: blob:",
+              "img-src 'self' data: blob: https://images.unsplash.com",
               "font-src 'self'",
               "frame-ancestors 'none'",
             ].join('; '),

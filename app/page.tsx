@@ -2,7 +2,7 @@
 
 import { useState } from "react"
 import Link from "next/link"
-import { Wind, MapPin, Search, Activity, Waves, Timer, ArrowUp, Zap, Navigation } from 'lucide-react'
+import { Wind, MapPin, Search, Activity, Waves, Timer, ArrowUp, Zap, Navigation, AlertTriangle, RefreshCw } from 'lucide-react'
 import Header from "@/components/header"
 import { useForecast } from "@/context/forecast-context"
 import { convertWindDirection } from "@/lib/converters"
@@ -17,7 +17,7 @@ const qualityConfig: Record<string, { style: string }> = {
 };
 
 export default function Home() {
-  const { allBeachesData, isLoading } = useForecast();
+  const { allBeachesData, isLoading, isError, errorMessage, refreshData } = useForecast();
   const [searchQuery, setSearchQuery] = useState("");
 
   const filteredPoints = allBeachesData.filter(point =>
@@ -109,6 +109,23 @@ export default function Home() {
             {[1, 2, 3, 4, 5, 6].map((i) => (
               <div key={i} className="h-72 bg-white/50 rounded-[2.5rem] animate-pulse border border-white" />
             ))}
+          </div>
+        ) : isError ? (
+          <div className="flex flex-col items-center justify-center gap-5 py-24 text-center">
+            <div className="bg-amber-100 p-5 rounded-full">
+              <AlertTriangle size={40} className="text-amber-500" />
+            </div>
+            <div>
+              <p className="text-xl font-bold text-slate-700 mb-1">データの取得に失敗しました</p>
+              <p className="text-slate-500 text-sm">{errorMessage ?? '波情報を読み込めませんでした'}</p>
+            </div>
+            <button
+              onClick={refreshData}
+              className="inline-flex items-center gap-2 bg-blue-600 text-white px-6 py-3 rounded-full font-medium hover:bg-blue-700 transition-all shadow-lg shadow-blue-500/20"
+            >
+              <RefreshCw size={16} />
+              再試行
+            </button>
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
