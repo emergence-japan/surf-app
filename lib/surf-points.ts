@@ -1,3 +1,5 @@
+import type { TideStationKey } from './tide-predictor';
+
 export interface SurfPoint {
   id: string;
   name: string;
@@ -5,7 +7,8 @@ export interface SurfPoint {
   lon: number;
   bestSwell?: string;
   note?: string;
-  beachFacing: string; // ビーチが向いている方角 (例: 'E', 'S')
+  beachFacing: string;
+  tideStation: TideStationKey; // 最寄りの潮汐観測局
 }
 
 // 日本全国の主要サーフポイント
@@ -17,7 +20,8 @@ export const surfPoints: SurfPoint[] = [
     lon: 135.532,
     bestSwell: 'NE, NNE, N, NNW',
     note: '北東に少し向いている',
-    beachFacing: 'NE'
+    beachFacing: 'NE',
+    tideStation: 'maizuru',   // 最寄: 舞鶴（日本海）
   },
   {
     id: 'point-2',
@@ -25,7 +29,8 @@ export const surfPoints: SurfPoint[] = [
     lat: 35.518,
     lon: 135.485,
     bestSwell: 'ENE,E, ESE',
-    beachFacing: 'E'
+    beachFacing: 'E',
+    tideStation: 'maizuru',
   },
   {
     id: 'point-3',
@@ -34,7 +39,8 @@ export const surfPoints: SurfPoint[] = [
     lon: 135.068,
     bestSwell: 'NNE, N, NNW, NW',
     note: '日本海、北うねり全般',
-    beachFacing: 'N'
+    beachFacing: 'N',
+    tideStation: 'maizuru',
   },
   {
     id: 'point-4',
@@ -43,7 +49,8 @@ export const surfPoints: SurfPoint[] = [
     lon: 134.96,
     bestSwell: 'NNE, N, NNW, NW',
     note: '日本海、北うねり全般',
-    beachFacing: 'NW'
+    beachFacing: 'NW',
+    tideStation: 'maizuru',
   },
   {
     id: 'point-5',
@@ -52,7 +59,8 @@ export const surfPoints: SurfPoint[] = [
     lon: 134.108,
     bestSwell: 'NNE, N, NNW, NW',
     note: '日本海全般',
-    beachFacing: 'N'
+    beachFacing: 'N',
+    tideStation: 'sakaiminato', // 最寄: 境港（日本海・鳥取）
   },
   {
     id: 'point-6',
@@ -61,7 +69,8 @@ export const surfPoints: SurfPoint[] = [
     lon: 136.885,
     bestSwell: 'E, ESE, SE, SSE, S',
     note: '東〜南うねりメイン',
-    beachFacing: 'E'
+    beachFacing: 'E',
+    tideStation: 'toba',        // 最寄: 鳥羽（伊勢湾口）
   },
   {
     id: 'point-7',
@@ -70,7 +79,8 @@ export const surfPoints: SurfPoint[] = [
     lon: 135.12,
     bestSwell: 'S, SSW, SW, WSW',
     note: '大阪湾内、強い南が必要',
-    beachFacing: 'S'
+    beachFacing: 'S',
+    tideStation: 'osaka',       // 最寄: 大阪（大阪湾）
   },
   {
     id: 'point-8',
@@ -79,7 +89,8 @@ export const surfPoints: SurfPoint[] = [
     lon: 134.588,
     bestSwell: 'ESE, SE, SSE, S',
     note: '紀伊水道、東〜南反応',
-    beachFacing: 'SE'
+    beachFacing: 'SE',
+    tideStation: 'komatsushima', // 最寄: 小松島（紀伊水道）
   },
   {
     id: 'point-9',
@@ -88,7 +99,8 @@ export const surfPoints: SurfPoint[] = [
     lon: 134.305,
     bestSwell: 'S, SSE, SE, ESE',
     note: '南〜東うねりに開いている',
-    beachFacing: 'SE'
+    beachFacing: 'SE',
+    tideStation: 'muroto',      // 最寄: 室戸（太平洋）
   },
   {
     id: 'point-10',
@@ -97,7 +109,8 @@ export const surfPoints: SurfPoint[] = [
     lon: 134.33,
     bestSwell: 'ESE, SE, SSE, S',
     note: '東洋町、南東がベスト',
-    beachFacing: 'SE'
+    beachFacing: 'SE',
+    tideStation: 'muroto',
   },
   {
     id: 'point-11',
@@ -106,7 +119,7 @@ export const surfPoints: SurfPoint[] = [
     lon: 137.22,
     bestSwell: 'SE, SSE, S, SSW',
     note: '太平洋に南向き',
-    beachFacing: 'S'
+    beachFacing: 'S',
+    tideStation: 'omaezaki',    // 最寄: 御前崎（太平洋）
   },
-
 ];

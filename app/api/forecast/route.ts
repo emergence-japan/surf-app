@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { surfPoints } from '@/lib/surf-points';
+import { computeTideHeight } from '@/lib/tide-predictor';
 
 // 1時間キャッシュ
 export const revalidate = 3600;
@@ -234,12 +235,6 @@ async function processPoint(point: typeof surfPoints[0]) {
       windRes.hourly?.wind_direction_10m ??
       null;
 
-    const hSeaLevel: (number | null)[] | null =
-      waveRes.hourly.sea_level ??
-      waveRes.hourly.sea_level_best_match ??
-      waveRes.hourly.sea_level_gwam ??
-      null;
-
     const hourlyData = hWaveHeight
       ? waveRes.hourly.time.map((time: string, i: number) => {
           const hSwellHeight = hWaveHeight[i] ?? null;
@@ -251,9 +246,8 @@ async function processPoint(point: typeof surfPoints[0]) {
           const hIsBestSwell = checkBestSwell(point.bestSwell, hWDirStr);
           const hWindEffect = getWindEffect(point.beachFacing, hWindDirStr, hWindSpdMs);
 
-          // 潮位: APIデータがある場合のみ使用、なければnull（フォールバックで誤情報を出さない）
-          const tideValue = hSeaLevel?.[i];
-          const tideHeight = (tideValue !== null && tideValue !== undefined) ? tideValue : null;
+          // 潮位: 天文潮汐計算（外部API不要・JMA調和定数使用）
+          const tideHeight = computeTideHeight(new Date(time).getTime(), point.tideStation);
 
           return {
             time,
