@@ -120,7 +120,7 @@ export default function Home() {
 
               return (
                 <Link key={point.id} href={`/point/${point.id}`} className="group block">
-                  <div className="relative h-full flex flex-col rounded-[2.5rem] p-7 transition-all duration-700
+                  <div className="relative h-full flex flex-col rounded-[2rem] p-6 transition-all duration-700
                     bg-white/50 backdrop-blur-3xl backdrop-saturate-150
                     border border-white/80 shadow-[0_20px_50px_-20px_rgba(0,0,0,0.07)]
                     hover:-translate-y-3 hover:shadow-[0_40px_80px_-20px_rgba(30,58,138,0.15)]
@@ -134,7 +134,7 @@ export default function Home() {
                       <div>
                         <div className="flex items-center gap-1.5 mb-1.5 text-blue-500">
                           <MapPin size={11} />
-                          <span className="text-[10px] font-bold tracking-[0.18em] uppercase">{prefecture}</span>
+                          <span className="text-[11px] font-bold tracking-[0.15em] uppercase">{prefecture}</span>
                         </div>
                         <h3 className="text-2xl font-bold text-slate-900 tracking-tight leading-tight group-hover:text-blue-600 transition-colors duration-300">
                           {spotName}
@@ -143,25 +143,30 @@ export default function Home() {
 
                       {/* グレードバッジ + BEST */}
                       <div className="flex flex-col items-end gap-1.5 shrink-0 ml-3">
-                        <div className={`w-9 h-9 rounded-xl flex items-center justify-center text-sm font-black border shadow-sm ${qStyle}`}>
+                        <div className={`w-11 h-11 rounded-xl flex items-center justify-center text-base font-black border shadow-sm ${qStyle}`}>
                           {point.quality}
                         </div>
                         {point.isBestSwell && (
-                          <div className="flex items-center gap-1 px-2 py-0.5 bg-amber-50 border border-amber-200 rounded-full text-amber-600">
-                            <Zap size={9} />
-                            <span className="text-[9px] font-black tracking-wider">BEST</span>
+                          <div className="flex items-center gap-1 px-2.5 py-0.5 bg-amber-50 border border-amber-200 rounded-full text-amber-600">
+                            <Zap size={10} />
+                            <span className="text-[10px] font-black tracking-wider">BEST</span>
                           </div>
                         )}
                       </div>
                     </div>
 
                     {/* 波高 + ビジュアル */}
-                    <div className="flex items-center justify-between mb-5 relative z-10">
+                    <div className="flex items-center justify-between mb-4 relative z-10">
                       <div>
-                        <p className="text-[9px] font-bold text-slate-400 uppercase tracking-[0.25em] mb-1">Wave Height</p>
-                        <span className="text-4xl font-black text-slate-900 tracking-tighter">
+                        <p className="text-[11px] font-bold text-slate-400 uppercase tracking-[0.2em] mb-1.5">波のサイズ</p>
+                        <span className="text-3xl font-black text-slate-900 tracking-tighter">
                           {point.height}
                         </span>
+                        {(point.heightMeters || 0) > 0 && (
+                          <span className="text-sm font-bold text-blue-400 ml-2">
+                            {(point.heightMeters || 0).toFixed(1)}m
+                          </span>
+                        )}
                       </div>
                       <VisualWaveHeight
                         heightMeters={point.heightMeters || 0}
@@ -170,53 +175,58 @@ export default function Home() {
                     </div>
 
                     {/* コンディション解説 */}
-                    <p className="text-[11px] leading-relaxed text-slate-500 mb-5 relative z-10">
-                      {point.conditionSummary}
-                    </p>
+                    <div className="flex items-start gap-2.5 bg-blue-50/70 border border-blue-100/80 rounded-xl px-3.5 py-2.5 mb-5 relative z-10">
+                      <Activity size={13} className="text-blue-400 mt-0.5 shrink-0" />
+                      <p className="text-[12px] leading-relaxed text-slate-600">
+                        {point.conditionSummary}
+                      </p>
+                    </div>
 
                     {/* 統計グリッド（3列） */}
-                    <div className="grid grid-cols-3 gap-3 pt-5 border-t border-blue-100/60 relative z-10">
+                    <div className="grid grid-cols-3 gap-2 pt-4 border-t border-blue-100/60 relative z-10 mt-auto">
 
                       {/* 周期 */}
-                      <div>
-                        <div className="flex items-center gap-1.5 text-slate-400 mb-1.5">
+                      <div className="bg-white/70 rounded-xl p-3">
+                        <div className="flex items-center gap-1.5 text-slate-400 mb-2">
                           <Timer size={11} />
-                          <span className="text-[9px] font-bold uppercase tracking-[0.15em]">周期</span>
+                          <span className="text-[11px] font-bold uppercase tracking-[0.1em]">周期</span>
                         </div>
-                        <p className="text-xl font-light text-slate-800 tracking-tight">
+                        <p className="text-2xl font-black text-slate-800 tracking-tight leading-none">
                           {point.period?.toFixed(0) ?? '-'}
-                          <span className="text-[10px] font-bold text-slate-400 ml-1">sec</span>
                         </p>
+                        <span className="text-[11px] font-bold text-slate-400">sec</span>
                       </div>
 
                       {/* 風 */}
-                      <div>
-                        <div className="flex items-center gap-1.5 text-slate-400 mb-1.5">
+                      <div className="bg-white/70 rounded-xl p-3">
+                        <div className="flex items-center gap-1.5 text-slate-400 mb-2">
                           <Wind size={11} />
-                          <span className="text-[9px] font-bold uppercase tracking-[0.15em]">風</span>
+                          <span className="text-[11px] font-bold uppercase tracking-[0.1em]">風速</span>
                         </div>
-                        <p className="text-xl font-light text-slate-800 tracking-tight">
+                        <p className="text-2xl font-black text-slate-800 tracking-tight leading-none">
                           {point.windSpeed?.toFixed(1) ?? '-'}
-                          <span className="text-[10px] font-bold text-slate-400 ml-1">m/s</span>
                         </p>
-                        <p className="text-[9px] font-bold text-blue-500 uppercase tracking-wider mt-0.5">
-                          {convertWindDirection(point.windDirection)}
-                        </p>
+                        <div className="flex items-center gap-1 mt-0.5">
+                          <span className="text-[11px] font-bold text-slate-400">m/s</span>
+                          <span className="text-[11px] font-bold text-blue-500 uppercase">
+                            {convertWindDirection(point.windDirection)}
+                          </span>
+                        </div>
                       </div>
 
                       {/* うねり方向 */}
-                      <div>
-                        <div className="flex items-center gap-1.5 text-slate-400 mb-1.5">
+                      <div className="bg-white/70 rounded-xl p-3">
+                        <div className="flex items-center gap-1.5 text-slate-400 mb-2">
                           <Navigation size={11} />
-                          <span className="text-[9px] font-bold uppercase tracking-[0.15em]">うねり</span>
+                          <span className="text-[11px] font-bold uppercase tracking-[0.1em]">うねり</span>
                         </div>
-                        <div className="flex items-center gap-2 mt-1">
+                        <div className="flex items-center gap-1.5 mt-1">
                           <ArrowUp
-                            size={18}
+                            size={22}
                             className="text-blue-500 shrink-0"
                             style={{ transform: `rotate(${point.waveDirectionDeg}deg)` }}
                           />
-                          <p className="text-[11px] font-bold text-slate-700 leading-tight">
+                          <p className="text-[12px] font-black text-slate-700 leading-tight">
                             {convertWindDirection(point.waveDirectionStr)}
                           </p>
                         </div>
