@@ -81,15 +81,7 @@ export default function VisualWaveHeight({ heightMeters, className = '' }: Visua
 
             {/* 波面のリップル（横スクロールアニメーション）
                 period=30 SVGユニット → translateX(-30)でシームレスループ */}
-            <g opacity="0.22">
-              <animateTransform
-                attributeName="transform"
-                type="translate"
-                from="0 0"
-                to="-30 0"
-                dur="2.5s"
-                repeatCount="indefinite"
-              />
+            <g opacity="0.22" style={{ animation: 'waveScroll 2.5s linear infinite' }}>
               <path
                 d={`
                   M -50,${surfY}
