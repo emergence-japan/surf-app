@@ -217,7 +217,7 @@ export default function Home() {
                             style={{ transform: `rotate(${point.waveDirectionDeg}deg)` }}
                           />
                           <p className="text-[11px] font-bold text-slate-700 leading-tight">
-                            {point.waveDirectionStr}
+                            {convertWindDirection(point.waveDirectionStr)}
                           </p>
                         </div>
                       </div>
