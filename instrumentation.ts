@@ -30,4 +30,5 @@ export async function register() {
 }
 
 // Next.js 15+ のリクエストエラーフック（未処理のサーバーエラーを Sentry に送信）
-export { onRequestError } from '@sentry/nextjs';
+// Sentry 未設定時も captureRequestError は no-op として動作するため常にエクスポートして問題ない
+export { captureRequestError as onRequestError } from '@sentry/nextjs';
