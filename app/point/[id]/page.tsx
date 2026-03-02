@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { Cloud, Wind, Droplets, MapPin, ArrowUp, Thermometer, ArrowLeft, Waves, Clock, Info, ShieldCheck } from 'lucide-react';
 import Header from '@/components/header';
@@ -23,7 +23,7 @@ const dirToDeg: Record<string, number> = {
 export default function PointDetail() {
     const params = useParams();
     const id = params?.id as string;
-    const { allBeachesData, isLoading: isContextLoading } = useForecast();
+    const { allBeachesData, isLoading: isContextLoading, lastUpdated } = useForecast();
 
     const [target, setTarget] = useState<SurfPointDetail | null>(null);
     const [waveData, setWaveData] = useState<any[]>([]);
@@ -38,6 +38,31 @@ export default function PointDetail() {
             }
         }
     }, [id, allBeachesData, isContextLoading]);
+
+    // 最終更新からの経過時間を表示用文字列に変換
+    const lastUpdatedLabel = useMemo(() => {
+        if (!lastUpdated) return '-';
+        const diffMs = Date.now() - lastUpdated.getTime();
+        const diffMin = Math.floor(diffMs / 60000);
+        if (diffMin < 1) return 'たった今';
+        if (diffMin < 60) return `${diffMin}分前`;
+        return `${Math.floor(diffMin / 60)}時間前`;
+    }, [lastUpdated]);
+
+    // 風状態ラベルを実データから計算
+    const windLabel = useMemo(() => {
+        if (!target) return '';
+        const DIRS = ['N', 'NNE', 'NE', 'ENE', 'E', 'ESE', 'SE', 'SSE', 'S', 'SSW', 'SW', 'WSW', 'W', 'WNW', 'NW', 'NNW'];
+        const beachIdx = DIRS.indexOf(target.beachFacing);
+        const windIdx = DIRS.indexOf(target.windDirection);
+        if (beachIdx === -1 || windIdx === -1) return '風データなし';
+        let diff = Math.abs(beachIdx - windIdx);
+        if (diff > 8) diff = 16 - diff;
+        const speed = target.windSpeed ?? 0;
+        if (diff >= 6) return speed > 5 ? '強いオフショア' : '弱いオフショア';
+        if (diff <= 2) return speed > 4 ? '強いオンショア' : '弱いオンショア';
+        return 'サイドウィンド';
+    }, [target]);
 
     const updateWaveData = (target: SurfPointDetail) => {
         if (!target || !target.hourly) return;
@@ -130,7 +155,7 @@ export default function PointDetail() {
                         )}
                         <div className="flex items-center gap-2 bg-white/80 backdrop-blur-md border border-blue-100 px-5 py-2.5 rounded-2xl text-xs font-bold tracking-widest uppercase text-blue-600">
                             <Clock size={16} />
-                            最終更新: 12分前
+                            最終更新: {lastUpdatedLabel}
                         </div>
                     </div>
                 </div>
@@ -221,7 +246,7 @@ export default function PointDetail() {
                             <div className="space-y-4">
                                 <div className="flex items-center justify-between">
                                     <p className="text-muted-foreground text-sm font-medium">風の状態</p>
-                                    <span className="text-xs font-bold text-emerald-500 bg-emerald-50 px-3 py-1 rounded-full uppercase">弱いオフショア</span>
+                                    <span className="text-xs font-bold text-emerald-500 bg-emerald-50 px-3 py-1 rounded-full uppercase">{windLabel}</span>
                                 </div>
                                 <div className="flex items-baseline gap-2">
                                     <p className="text-6xl font-extralight text-foreground tracking-tighter leading-none">{target.windSpeed?.toFixed(1) ?? '-'}</p>
@@ -237,15 +262,15 @@ export default function PointDetail() {
                                 </div>
                                 <div className="p-6 bg-cyan-50/50 rounded-3xl border border-cyan-100/50 space-y-2">
                                     <div className="text-cyan-500"><Droplets size={20} /></div>
-                                    <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">湿度</p>
-                                    <p className="text-2xl font-semibold leading-none">64%</p>
+                                    <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">雲量</p>
+                                    <p className="text-2xl font-semibold leading-none">{target.cloudCover !== null && target.cloudCover !== undefined ? `${target.cloudCover}%` : '-'}</p>
                                 </div>
                             </div>
                         </div>
                         
                         <div className="mt-10 p-5 bg-white/50 rounded-2xl border border-blue-50 text-[11px] text-muted-foreground leading-relaxed flex gap-3">
                             <Info size={16} className="shrink-0 text-blue-400" />
-                            <p>現在の風向きは、このポイントの波の面を整えるのに適したオフショアです。</p>
+                            <p>現在の風向きは{convertWindDirection(target.windDirection)}（{target.windSpeed?.toFixed(1) ?? '-'} m/s）。{windLabel}です。</p>
                         </div>
                     </div>
                 </div>
