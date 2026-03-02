@@ -2,7 +2,7 @@
 
 import { useState } from "react"
 import Link from "next/link"
-import { Wind, MapPin, Search, Activity, Waves, Timer, Navigation, ArrowUp, Zap } from 'lucide-react'
+import { Wind, MapPin, Search, Activity, Waves, Timer, ArrowUp, Zap, Navigation } from 'lucide-react'
 import Header from "@/components/header"
 import { useForecast } from "@/context/forecast-context"
 import { convertWindDirection } from "@/lib/converters"
