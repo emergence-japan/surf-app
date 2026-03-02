@@ -1,106 +1,151 @@
-import React from 'react';
+'use client';
+
+import { useId } from 'react';
 
 interface VisualWaveHeightProps {
-  heightMeters: number; // 波の高さ（メートル）
+  heightMeters: number;
   className?: string;
 }
 
+function getColorConfig(h: number) {
+  if (h < 0.5)  return { top: '#bfdbfe', bot: '#2563eb', badge: 'bg-sky-100 text-sky-600 border-sky-200',    glow: 'rgba(56,189,248,0.2)'  };
+  if (h < 1.0)  return { top: '#a7f3d0', bot: '#059669', badge: 'bg-emerald-100 text-emerald-600 border-emerald-200', glow: 'rgba(52,211,153,0.2)'  };
+  if (h < 1.8)  return { top: '#fde68a', bot: '#d97706', badge: 'bg-amber-100 text-amber-600 border-amber-200',   glow: 'rgba(251,191,36,0.25)' };
+  return          { top: '#fecaca', bot: '#dc2626', badge: 'bg-red-100 text-red-600 border-red-200',       glow: 'rgba(248,113,113,0.3)' };
+}
+
 export default function VisualWaveHeight({ heightMeters, className = '' }: VisualWaveHeightProps) {
-  // DEBUG: Check input value
-  if (typeof window !== 'undefined') {
-      console.log(`VisualWaveHeight input: ${heightMeters}m`);
-  }
+  // useId でインスタンスごとに一意なIDを生成（gradient/clipPath衝突防止）
+  const rawId = useId();
+  const uid = rawId.replace(/[^a-zA-Z0-9]/g, '');
+  const gradId  = `g${uid}`;
+  const clipId  = `c${uid}`;
 
-  // SVGの設定
-  const viewBoxHeight = 100;
-  const viewBoxWidth = 100;
-  
-  // スケール計算
-  // 1.0m = 40px で計算し、人体比率に合わせる
-  const pixelsPerMeter = 40; 
-  const groundY = 95; // 地面のY座標
-  
-  // 人体座標の定義 (Ground = 95)
-  // 身長1.7m -> 95 - (1.7 * 40) = 27px
-  // 腰 1.0m -> 95 - 40 = 55px
-  // 膝 0.5m -> 95 - 20 = 75px
-  
-  const personX = 25; // サーファーのX座標中心
+  // ---- スケール設定 ----
+  // 1m = 28px, 人の身長 1.7m = 47.6px
+  // groundY=88 → 頭頂: 88-47.6≈40 → 腰: 88-28=60 → ヒザ: 88-14=74
+  const groundY = 88;
+  const PX_PER_M = 28;
+  const waveH   = Math.min(Math.max(heightMeters, 0.05) * PX_PER_M, 76);
+  const peakY   = groundY - waveH;
 
-  // 波の高さ計算
-  // 表示上の上限を少し設ける（3m超えは枠外に出るためクリップされるがOK）
-  const visualHeight = Math.max(heightMeters, 0.1); 
-  const waveHeightPixels = visualHeight * pixelsPerMeter;
-  const wavePeakY = groundY - waveHeightPixels;
+  // 波面アニメーションのY（波頂より少し下）
+  const surfY = peakY + 5;
 
-  // 波の色
-  const getWaveColor = (h: number) => {
-    if (h < 0.5) return "#60A5FA"; // blue-400 (Knee)
-    if (h < 1.0) return "#34D399"; // emerald-400 (Waist)
-    if (h < 1.5) return "#FBBF24"; // amber-400 (Chest/Head)
-    return "#F87171"; // red-400 (Overhead)
-  };
+  const c = getColorConfig(heightMeters);
 
   return (
-    <div className={`relative ${className}`} style={{ width: '100px', height: '100px' }}>
-      <svg
-        viewBox={`0 0 ${viewBoxWidth} ${viewBoxHeight}`}
-        className="w-full h-full drop-shadow-sm"
-        xmlns="http://www.w3.org/2000/svg"
-      >
-        {/* ガイドライン (目安) */}
-        {/* 1.0m (腰付近) */}
-        <line x1="10" y1={groundY - 40} x2="90" y2={groundY - 40} stroke="#e2e8f0" strokeWidth="1" strokeDasharray="2 2" />
-        {/* 2.0m (オーバーヘッド) */}
-        <line x1="10" y1={groundY - 80} x2="90" y2={groundY - 80} stroke="#e2e8f0" strokeWidth="1" strokeDasharray="2 2" />
+    <div className={`relative ${className}`} style={{ minWidth: 80, minHeight: 80 }}>
 
-        {/* 地面 */}
-        <line x1="0" y1={groundY} x2="100" y2={groundY} stroke="#94a3b8" strokeWidth="1.5" />
-        
-        {/* サーファーのシルエット (詳細化) */}
-        <g fill="#475569" stroke="#475569">
-          {/* Head (Top at ~25px) */}
-          <circle cx={personX} cy={29} r="3.5" stroke="none" />
-          {/* Body (Neck to Waist) */}
-          <line x1={personX} y1={33} x2={personX} y2={55} strokeWidth="6" strokeLinecap="round" />
-          {/* Legs (Waist to Ground) */}
-          <path d={`M ${personX},52 L ${personX - 4},${groundY} M ${personX},52 L ${personX + 4},${groundY}`} strokeWidth="3" strokeLinecap="round" />
-          {/* Arms */}
-          <path d={`M ${personX},36 L ${personX - 6},50 M ${personX},36 L ${personX + 6},50`} strokeWidth="2.5" strokeLinecap="round" />
-        </g>
+      {/* グロー背景 */}
+      <div
+        className="absolute inset-0 rounded-full blur-2xl scale-110 pointer-events-none"
+        style={{ background: c.glow }}
+      />
 
-        {/* 波のシェイプ */}
-        {/* 人のすぐ横(X=50付近)でピークになるように描画 */}
-        <path
-          d={`
-            M 35,${groundY} 
-            Q 55,${wavePeakY} 75,${wavePeakY} 
-            T 100,${groundY} 
-            L 100,${groundY} 
-            L 35,${groundY}
-          `}
-          fill={getWaveColor(heightMeters)}
-          opacity="0.85"
-        />
-        
-        {/* 波のトップライン強調 */}
-        <path
-          d={`
-            M 35,${groundY} 
-            Q 55,${wavePeakY} 75,${wavePeakY} 
-          `}
-          fill="none"
-          stroke="white"
-          strokeWidth="1.5"
-          opacity="0.5"
-        />
+      <div className="relative w-full h-full">
+        <svg viewBox="0 0 100 100" className="w-full h-full" xmlns="http://www.w3.org/2000/svg">
+          <defs>
+            {/* 波のグラデーション */}
+            <linearGradient id={gradId} x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%"   stopColor={c.top} stopOpacity="0.85" />
+              <stop offset="100%" stopColor={c.bot} stopOpacity="1"    />
+            </linearGradient>
+            {/* 波を右半分に制限するクリップ */}
+            <clipPath id={clipId}>
+              <rect x="34" y="0" width="66" height="100" />
+            </clipPath>
+          </defs>
 
-      </svg>
-      
-      {/* 数値ラベル */}
-      <div className="absolute bottom-0 right-0 text-xs font-bold text-slate-500 bg-white/90 px-1 rounded border border-slate-100">
+          {/* ---- 身体参照ライン（腰・頭）---- */}
+          {/* 腰 1.0m */}
+          <line x1="2" y1={groundY - PX_PER_M * 1.0} x2="33" y2={groundY - PX_PER_M * 1.0}
+            stroke="#e2e8f0" strokeWidth="0.7" strokeDasharray="2 2" />
+          {/* 頭 1.7m */}
+          <line x1="2" y1={groundY - PX_PER_M * 1.7} x2="33" y2={groundY - PX_PER_M * 1.7}
+            stroke="#e2e8f0" strokeWidth="0.7" strokeDasharray="2 2" />
+
+          {/* ---- 波 ---- */}
+          <g clipPath={`url(#${clipId})`}>
+
+            {/* 波のボディ（高さ連動・グラデーション） */}
+            <path
+              d={`
+                M 34,${groundY}
+                C 37,${peakY + 7}  44,${peakY}     52,${peakY}
+                C 64,${peakY}      82,${peakY + 9}  100,${groundY}
+                Z
+              `}
+              fill={`url(#${gradId})`}
+            />
+
+            {/* 波面のリップル（横スクロールアニメーション）
+                period=30 SVGユニット → translateX(-30)でシームレスループ */}
+            <g opacity="0.22">
+              <animateTransform
+                attributeName="transform"
+                type="translate"
+                from="0 0"
+                to="-30 0"
+                dur="2.5s"
+                repeatCount="indefinite"
+              />
+              <path
+                d={`
+                  M -50,${surfY}
+                  Q -35,${surfY - 4}   -20,${surfY}
+                  Q  -5,${surfY + 4}    10,${surfY}
+                  Q  25,${surfY - 4}    40,${surfY}
+                  Q  55,${surfY + 4}    70,${surfY}
+                  Q  85,${surfY - 4}   100,${surfY}
+                  Q 115,${surfY + 4}   130,${surfY}
+                  L 130,${groundY} L -50,${groundY} Z
+                `}
+                fill="white"
+              />
+            </g>
+
+            {/* 波頂カール */}
+            <path
+              d={`M 36,${peakY + 4} Q 49,${peakY - 7} 62,${peakY + 2}`}
+              fill="none" stroke="white" strokeWidth="1.8"
+              strokeLinecap="round" opacity="0.85"
+            />
+            {/* 泡 */}
+            <ellipse cx="50" cy={peakY + 1} rx="9" ry="2.8" fill="white" opacity="0.38" />
+          </g>
+
+          {/* 地面ライン */}
+          <line x1="0" y1={groundY} x2="100" y2={groundY} stroke="#cbd5e1" strokeWidth="1" />
+
+          {/* ---- サーファーシルエット ----
+               身長 1.7m = 47.6px
+               頭中心 y≈44, 足 y=88 */}
+          <g stroke="#1e293b" strokeLinecap="round" fill="none" opacity="0.88">
+            {/* 頭 */}
+            <circle cx="18" cy="44" r="4.2" fill="#1e293b" stroke="none" />
+            {/* 胴体 */}
+            <line x1="18" y1="48.5" x2="18" y2="65" strokeWidth="5" />
+            {/* 左脚 */}
+            <line x1="16" y1="64" x2="12" y2="87" strokeWidth="3.5" />
+            {/* 右脚 */}
+            <line x1="20" y1="64" x2="24" y2="87" strokeWidth="3.5" />
+            {/* 左腕（下げ） */}
+            <line x1="18" y1="53" x2="8"  y2="62" strokeWidth="2.5" />
+            {/* 右腕（上げ・バランス） */}
+            <line x1="18" y1="53" x2="29" y2="46" strokeWidth="2.5" />
+            {/* サーフボード */}
+            <path d="M 9,85 Q 18,93 28,88" strokeWidth="2.2" />
+          </g>
+
+        </svg>
+      </div>
+
+      {/* 波高バッジ */}
+      <div className={`absolute bottom-0 right-0 text-[10px] font-black px-1.5 py-0.5 rounded-full border ${c.badge} shadow-sm`}>
         {heightMeters.toFixed(1)}m
       </div>
+
     </div>
   );
 }
