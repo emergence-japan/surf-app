@@ -169,6 +169,11 @@ export default function Home() {
                       />
                     </div>
 
+                    {/* コンディション解説 */}
+                    <p className="text-[11px] leading-relaxed text-slate-500 mb-5 relative z-10">
+                      {point.conditionSummary}
+                    </p>
+
                     {/* 統計グリッド（3列） */}
                     <div className="grid grid-cols-3 gap-3 pt-5 border-t border-blue-100/60 relative z-10">
 

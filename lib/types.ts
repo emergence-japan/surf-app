@@ -54,6 +54,7 @@ export interface SurfPointDetail extends SurfPointSummary {
     beachFacing: string;
     visibility?: number;
     cloudCover?: number;
+    conditionSummary: string;
     hourly: HourlyForecastData[];
     daily: DailyForecastData[];
 }

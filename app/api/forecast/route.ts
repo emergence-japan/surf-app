@@ -132,6 +132,89 @@ function calculateQuality(baseScore: number, windEffect: number, isBestSwell: bo
   return 'D';
 }
 
+// コンディション解説文をルールベースで生成
+function generateConditionSummary(params: {
+  waveDirectionStr: string;
+  isBestSwell: boolean;
+  effectiveHeight: number;
+  period: number;
+  windDirStr: string;
+  windSpeed: number;
+  beachFacing: string;
+  quality: 'S' | 'A' | 'B' | 'C' | 'D';
+}): string {
+  const parts: string[] = [];
+
+  // ① うねりの状況
+  if (params.effectiveHeight < 0.2) {
+    parts.push('現在ほぼフラットで波はありません。');
+  } else {
+    if (params.isBestSwell) {
+      parts.push(`${params.waveDirectionStr}からのベスト方向のうねりが入っています。`);
+    } else if (params.waveDirectionStr && params.waveDirectionStr !== '-') {
+      parts.push(`${params.waveDirectionStr}からのうねりが届いています。`);
+    }
+
+    // ② 周期
+    if (params.period >= 14) {
+      parts.push(`周期${params.period}秒の長周期うねりでパワーがあります。`);
+    } else if (params.period >= 10) {
+      parts.push(`周期${params.period}秒の中周期うねりです。`);
+    } else if (params.period >= 6) {
+      parts.push(`周期${params.period}秒の風波気味のうねりです。`);
+    }
+  }
+
+  // ③ 風の状況（ビーチ向きとの角度で判定）
+  const beachIdx = DIRS.indexOf(params.beachFacing as typeof DIRS[number]);
+  const windIdx  = DIRS.indexOf(params.windDirStr  as typeof DIRS[number]);
+
+  if (beachIdx !== -1 && windIdx !== -1 && params.windDirStr !== '-') {
+    let diff = Math.abs(beachIdx - windIdx);
+    if (diff > 8) diff = 16 - diff;
+
+    if (diff >= 6) {
+      // オフショア
+      if (params.windSpeed > 8) {
+        parts.push('オフショアが強すぎて波が吹き上げられています。');
+      } else if (params.windSpeed > 3) {
+        parts.push('オフショアの風が波面を整えています。');
+      } else {
+        parts.push('弱いオフショアで面がきれいです。');
+      }
+    } else if (diff >= 3) {
+      // サイドショア
+      if (params.windSpeed > 7) {
+        parts.push(`強いサイドオンショア（${params.windSpeed.toFixed(1)}m/s）で波面が乱れています。`);
+      } else if (params.windSpeed > 3) {
+        parts.push('サイドからの風でやや波面が乱れています。');
+      }
+      // 弱いサイドは特記なし
+    } else {
+      // オンショア
+      if (params.windSpeed > 8) {
+        parts.push(`強いオンショア（${params.windSpeed.toFixed(1)}m/s）で波はぐちゃぐちゃです。`);
+      } else if (params.windSpeed > 5) {
+        parts.push('オンショアの風で波面が荒れています。');
+      } else if (params.windSpeed > 3) {
+        parts.push('弱いオンショアで波面がやや乱れています。');
+      }
+    }
+  }
+
+  // ④ 総評
+  const verdict: Record<string, string> = {
+    'S': '今日は見逃せないコンディションです！',
+    'A': '良いコンディションです。出動する価値あり。',
+    'B': '平均的なコンディションです。',
+    'C': 'やや厳しいコンディションです。',
+    'D': '今日は見送りが無難です。',
+  };
+  parts.push(verdict[params.quality] ?? '');
+
+  return parts.filter(Boolean).join(' ');
+}
+
 // ベストスウェル判定
 function checkBestSwell(bestSwell: string | undefined, currentDirStr: string): boolean {
   if (!bestSwell || !currentDirStr || currentDirStr === '-') return false;
@@ -326,6 +409,17 @@ async function processPoint(point: typeof surfPoints[0]) {
         })
       : [];
 
+    const conditionSummary = generateConditionSummary({
+      waveDirectionStr: waveDirStr,
+      isBestSwell,
+      effectiveHeight,
+      period: waveRes.current?.wave_period ?? 0,
+      windDirStr,
+      windSpeed: windSpeedMs,
+      beachFacing: point.beachFacing,
+      quality: finalQuality,
+    });
+
     return {
       id: point.id,
       beach: point.name,
@@ -343,6 +437,7 @@ async function processPoint(point: typeof surfPoints[0]) {
       temperature: curTemp,
       visibility: curVisibility,
       cloudCover: curCloudCover,
+      conditionSummary,
       quality: finalQuality,
       time: new Date().toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' }),
       nextUpdate: '1時間後',
