@@ -100,21 +100,22 @@ function getWindEffect(beachFacing: string, windDir: string, windSpeed: number):
   let diff = Math.abs(beachIdx - windIdx);
   if (diff > 8) diff = 16 - diff;
 
-  // オフショア（135°〜180°: diff 6〜8）
-  // 8 m/s 超は波が吹き上げられて恩恵なし
-  if (diff >= 6) {
-    return windSpeed > 8 ? 0 : 1;
+  // 8 m/s 超の強風はどの方向でもサーフィンに向かない
+  if (windSpeed > 8) {
+    if (diff >= 6) return -1; // 強オフショア: 波が吹き上げられパドルが激しい
+    if (diff >= 3) return -2; // 強サイドショア
+    return -3;                // 強オンショア
   }
 
+  // オフショア（135°〜180°: diff 6〜8）
+  if (diff >= 6) return 1;
+
   // サイドショア（67.5°〜112.5°: diff 3〜5）
-  // 強風になると波面が乱れてマイナス
   if (diff >= 3) {
-    return windSpeed > 7 ? -1 : 0;
+    return windSpeed > 5 ? -1 : 0;
   }
 
   // オンショア（0°〜45°: diff 0〜2）
-  // 5 m/s を超えると急激に波質が悪化する
-  if (windSpeed > 8) return -3;
   if (windSpeed > 5) return -2;
   if (windSpeed > 3) return -1;
   return 0;
