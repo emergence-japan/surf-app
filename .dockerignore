@@ -1,0 +1,14 @@
+.git
+.gitignore
+.github
+.next
+node_modules
+npm-debug.log*
+.env*
+!.env.example
+.vercel
+__tests__
+*.tsbuildinfo
+README.md
+docker-compose.yml
+Dockerfile
