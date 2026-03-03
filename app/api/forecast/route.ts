@@ -9,12 +9,15 @@ export const revalidate = 3600;
 // 16方位の定数（重複定義を排除）
 const DIRS = ['N', 'NNE', 'NE', 'ENE', 'E', 'ESE', 'SE', 'SSE', 'S', 'SSW', 'SW', 'WSW', 'W', 'WNW', 'NW', 'NNW'] as const;
 
-// fetchタイムアウト付きラッパー
-async function fetchWithTimeout(url: string, timeoutMs = 10000): Promise<Response> {
+// fetchタイムアウト付きラッパー（1時間fetchキャッシュ付き）
+async function fetchWithTimeout(url: string, timeoutMs = 15000): Promise<Response> {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
-    return await fetch(url, { signal: controller.signal });
+    return await fetch(url, {
+      signal: controller.signal,
+      next: { revalidate: 3600 },   // 1時間キャッシュ: APIタイムアウト時も古いデータでスポット表示を保証
+    });
   } finally {
     clearTimeout(timer);
   }
@@ -339,20 +342,22 @@ async function processPoint(point: typeof surfPoints[0]) {
     const finalQuality = calculateQuality(waveBase.score, windEffect, isBestSwell, effectiveHeight, curPeriod);
 
     // hourlyデータのフォールバックチェーン（null安全）
+    // marine APIはmodels=best_match,gwam指定時にmodel固有フィールド名を使用する
+    // best_matchモデルのフィールド名は "wave_height_marine_best_match"
     const hWaveHeight: (number | null)[] | null =
-      waveRes.hourly.wave_height_best_match ??
+      waveRes.hourly.wave_height_marine_best_match ??
       waveRes.hourly.wave_height_gwam ??
       waveRes.hourly.wave_height ??
       null;
 
     const hWavePeriod: (number | null)[] | null =
-      waveRes.hourly.wave_period_best_match ??
+      waveRes.hourly.wave_period_marine_best_match ??
       waveRes.hourly.wave_period_gwam ??
       waveRes.hourly.wave_period ??
       null;
 
     const hWaveDir: (number | null)[] | null =
-      waveRes.hourly.wave_direction_best_match ??
+      waveRes.hourly.wave_direction_marine_best_match ??
       waveRes.hourly.wave_direction_gwam ??
       waveRes.hourly.wave_direction ??
       null;
@@ -470,7 +475,7 @@ async function processPoint(point: typeof surfPoints[0]) {
       windSpeed: windSpeedMs,
       windDirection: windDirStr,
       waveDirectionStr: waveDirStr,
-      waveDirectionDeg: curWaveDir,
+      waveDirectionDeg: curWaveDir ?? 0,
       isBestSwell,
       beachFacing: point.beachFacing,
       temperature: curTemp,
