@@ -132,8 +132,8 @@ export function calculateQuality(
 // ベストスウェル判定
 export function checkBestSwell(bestSwell: string | undefined, currentDirStr: string, period: number): boolean {
   if (!bestSwell || !currentDirStr || currentDirStr === '-') return false;
-  // 周期8秒未満の風波はベストうねりとみなさない
-  if (period > 0 && period < 8) return false;
+  // 周期データなし(0)または8秒未満の風波はベストうねりとみなさない
+  if (period < 8) return false;
   const candidates = bestSwell.toUpperCase().split(/[\s,、・]+/);
   return candidates.includes(currentDirStr.toUpperCase());
 }

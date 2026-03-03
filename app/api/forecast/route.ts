@@ -113,7 +113,9 @@ async function processPoint(point: typeof surfPoints[0]) {
     const effectiveHeight = calculateEffectiveHeight(curWave, waveDirStr, point.beachFacing, waveRes.current?.wave_period);
     const waveBase = getWaveBaseScore(effectiveHeight);
     const curPeriod = waveRes.current?.wave_period ?? 0;
-    const isBestSwell = checkBestSwell(point.bestSwell, waveDirStr, curPeriod);
+    const isBestSwell = checkBestSwell(point.bestSwell, waveDirStr, curPeriod)
+      && waveBase.score >= 3    // 小さすぎ(スネ〜ヒザ以下)・大きすぎ(頭オーバー)はNG
+      && windSpeedMs <= 5;      // 5m/s超の風はNG
     const windEffect = getWindEffect(point.beachFacing, windDirStr, windSpeedMs);
     const finalQuality = calculateQuality(waveBase.score, windEffect, isBestSwell, effectiveHeight, curPeriod);
 
@@ -159,7 +161,9 @@ async function processPoint(point: typeof surfPoints[0]) {
           const hWindDirStr = degreesToDir(hWindDir?.[i]);
           const hWindSpdMs = (hWindSpeed?.[i] ?? null) !== null ? (hWindSpeed![i]! / 3.6) : 0;
           const hPeriod = hWavePeriod?.[i] ?? 0;
-          const hIsBestSwell = checkBestSwell(point.bestSwell, hWDirStr, hPeriod);
+          const hIsBestSwell = checkBestSwell(point.bestSwell, hWDirStr, hPeriod)
+            && hWBase.score >= 3
+            && hWindSpdMs <= 5;
           const hWindEffect = getWindEffect(point.beachFacing, hWindDirStr, hWindSpdMs);
 
           // 潮位: 天文潮汐計算（外部API不要・JMA調和定数使用）
