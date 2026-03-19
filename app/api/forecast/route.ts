@@ -1,11 +1,12 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import { surfPoints } from '@/lib/surf-points';
-import { computeTideHeight } from '@/lib/tide-predictor';
+import { computeTideHeight, computeTidePhase, getTideScoreEffect } from '@/lib/tide-predictor';
 import { convertWindDirection } from '@/lib/converters';
 import {
   degreesToDir,
   calculateEffectiveHeight,
+  analyzeSwellComponents,
   getWaveBaseScore,
   getWindEffect,
   calculateQuality,
@@ -50,7 +51,11 @@ async function processPoint(point: typeof surfPoints[0]) {
 
     const waveUrl = `https://marine-api.open-meteo.com/v1/marine?latitude=${point.lat}&longitude=${point.lon}`
       + `&current=wave_height,wave_direction,wave_period`
+      + `,swell_wave_height,swell_wave_direction,swell_wave_period`
+      + `,wind_wave_height,wind_wave_direction,wind_wave_period`
       + `&hourly=wave_height,wave_direction,wave_period,sea_surface_temperature`
+      + `,swell_wave_height,swell_wave_direction,swell_wave_period`
+      + `,wind_wave_height,wind_wave_direction,wind_wave_period`
       + `&daily=wave_height_max,wave_direction_dominant`
       + `&models=best_match,gwam`
       + `&timezone=Asia%2FTokyo`;
@@ -110,35 +115,96 @@ async function processPoint(point: typeof surfPoints[0]) {
     const windDirStr = degreesToDir(curWindDir);
     const waveDirStr = degreesToDir(curWaveDir);
 
-    const effectiveHeight = calculateEffectiveHeight(curWave, waveDirStr, point.beachFacing, waveRes.current?.wave_period);
+    // スウェル成分の分離解析
+    const curSwellHeight = waveRes.current?.swell_wave_height ?? null;
+    const curSwellDir    = waveRes.current?.swell_wave_direction ?? null;
+    const curSwellPeriod = waveRes.current?.swell_wave_period ?? null;
+    const curWindWaveHeight = waveRes.current?.wind_wave_height ?? null;
+    const curWindWaveDir    = waveRes.current?.wind_wave_direction ?? null;
+    const curWindWavePeriod = waveRes.current?.wind_wave_period ?? null;
+
+    const hasSwellData = curSwellHeight !== null || curWindWaveHeight !== null;
+
+    const swellAnalysis = hasSwellData
+      ? analyzeSwellComponents({
+          swellHeight: curSwellHeight,
+          swellDir:    curSwellDir,
+          swellPeriod: curSwellPeriod,
+          windWaveHeight: curWindWaveHeight,
+          windWaveDir:    curWindWaveDir,
+          windWavePeriod: curWindWavePeriod,
+          beachFacing: point.beachFacing,
+        })
+      : null;
+
+    // 有効波高: スウェル分離データがあれば合成値を、なければ従来計算を使用
+    const effectiveHeight = swellAnalysis
+      ? swellAnalysis.combinedEffectiveHeight
+      : calculateEffectiveHeight(curWave, waveDirStr, point.beachFacing, waveRes.current?.wave_period);
+
     const waveBase = getWaveBaseScore(effectiveHeight);
-    const curPeriod = waveRes.current?.wave_period ?? 0;
-    const isBestSwell = checkBestSwell(point.bestSwell, waveDirStr, curPeriod)
-      && waveBase.score >= 3    // 小さすぎ(スネ〜ヒザ以下)・大きすぎ(頭オーバー)はNG
-      && windSpeedMs <= 5;      // 5m/s超の風はNG
+
+    // 周期・方向: スウェル分離データがあればドミナント成分を優先
+    const curPeriod = swellAnalysis
+      ? swellAnalysis.dominantPeriod
+      : (waveRes.current?.wave_period ?? 0);
+    const dominantDirStr = swellAnalysis ? swellAnalysis.dominantDirStr : waveDirStr;
+
+    // isBestSwell: スウェル方向で判定（分離データがある場合はスウェル成分のみ）
+    const swellDirStr = swellAnalysis ? degreesToDir(curSwellDir) : waveDirStr;
+    const swellPeriod = curSwellPeriod ?? curPeriod;
+    const isBestSwell = checkBestSwell(point.bestSwell, swellDirStr, swellPeriod)
+      && waveBase.score >= 3
+      && windSpeedMs <= 5;
+
     const windEffect = getWindEffect(point.beachFacing, windDirStr, windSpeedMs);
-    const finalQuality = calculateQuality(waveBase.score, windEffect, isBestSwell, effectiveHeight, curPeriod);
+
+    // 潮汐フェーズ補正（現在時刻）
+    const curTidePhase = computeTidePhase(now.getTime(), point.tideStation);
+    const curTideScoreEffect = getTideScoreEffect(curTidePhase);
+
+    const finalQuality = calculateQuality(
+      waveBase.score, windEffect, isBestSwell, effectiveHeight, curPeriod,
+      swellAnalysis?.isSwellDominant,
+      curTideScoreEffect
+    );
 
     // hourlyデータのフォールバックチェーン（null安全）
     // marine APIはmodels=best_match,gwam指定時にmodel固有フィールド名を使用する
     // best_matchモデルのフィールド名は "wave_height_marine_best_match"
-    const hWaveHeight: (number | null)[] | null =
-      waveRes.hourly.wave_height_marine_best_match ??
-      waveRes.hourly.wave_height_gwam ??
-      waveRes.hourly.wave_height ??
-      null;
+    // アンサンブル平均ヘルパー: 両モデルの値が揃っている場合は平均値を返す
+    function ensembleAvg(
+      a: (number | null)[] | undefined,
+      b: (number | null)[] | undefined,
+      fallback: (number | null)[] | undefined
+    ): (number | null)[] | null {
+      if (a && b && a.length === b.length) {
+        return a.map((v, i) => {
+          const bv = b[i];
+          if (v !== null && bv !== null) return Math.round(((v + bv) / 2) * 100) / 100;
+          return v ?? bv ?? null;
+        });
+      }
+      return a ?? b ?? fallback ?? null;
+    }
 
-    const hWavePeriod: (number | null)[] | null =
-      waveRes.hourly.wave_period_marine_best_match ??
-      waveRes.hourly.wave_period_gwam ??
-      waveRes.hourly.wave_period ??
-      null;
+    const hWaveHeight: (number | null)[] | null = ensembleAvg(
+      waveRes.hourly.wave_height_marine_best_match,
+      waveRes.hourly.wave_height_gwam,
+      waveRes.hourly.wave_height
+    );
+
+    const hWavePeriod: (number | null)[] | null = ensembleAvg(
+      waveRes.hourly.wave_period_marine_best_match,
+      waveRes.hourly.wave_period_gwam,
+      waveRes.hourly.wave_period
+    );
 
     const hWaveDir: (number | null)[] | null =
       waveRes.hourly.wave_direction_marine_best_match ??
       waveRes.hourly.wave_direction_gwam ??
       waveRes.hourly.wave_direction ??
-      null;
+      null; // 方向は平均ではなく優先モデルを使用
 
     const hWindSpeed: (number | null)[] | null =
       windRes.hourly?.wind_speed_10m_jma_msm ??
@@ -152,34 +218,99 @@ async function processPoint(point: typeof surfPoints[0]) {
       windRes.hourly?.wind_direction_10m ??
       null;
 
+    // hourlyスウェル成分（アンサンブル平均）
+    const hSwellHeight: (number | null)[] | null = ensembleAvg(
+      waveRes.hourly.swell_wave_height_marine_best_match,
+      waveRes.hourly.swell_wave_height_gwam,
+      waveRes.hourly.swell_wave_height
+    );
+    const hSwellDir: (number | null)[] | null =
+      waveRes.hourly.swell_wave_direction_marine_best_match ??
+      waveRes.hourly.swell_wave_direction_gwam ??
+      waveRes.hourly.swell_wave_direction ??
+      null;
+    const hSwellPeriod: (number | null)[] | null = ensembleAvg(
+      waveRes.hourly.swell_wave_period_marine_best_match,
+      waveRes.hourly.swell_wave_period_gwam,
+      waveRes.hourly.swell_wave_period
+    );
+    const hWindWaveHeight: (number | null)[] | null = ensembleAvg(
+      waveRes.hourly.wind_wave_height_marine_best_match,
+      waveRes.hourly.wind_wave_height_gwam,
+      waveRes.hourly.wind_wave_height
+    );
+    const hWindWaveDir: (number | null)[] | null =
+      waveRes.hourly.wind_wave_direction_marine_best_match ??
+      waveRes.hourly.wind_wave_direction_gwam ??
+      waveRes.hourly.wind_wave_direction ??
+      null;
+    const hWindWavePeriod: (number | null)[] | null = ensembleAvg(
+      waveRes.hourly.wind_wave_period_marine_best_match,
+      waveRes.hourly.wind_wave_period_gwam,
+      waveRes.hourly.wind_wave_period
+    );
+
     const hourlyData = hWaveHeight
       ? waveRes.hourly.time.map((time: string, i: number) => {
-          const hSwellHeight = hWaveHeight[i] ?? null;
+          const hRawHeight = hWaveHeight[i] ?? null;
           const hWDirStr = degreesToDir(hWaveDir?.[i]);
-          const hEffectiveHeight = calculateEffectiveHeight(hSwellHeight, hWDirStr, point.beachFacing, hWavePeriod?.[i]);
-          const hWBase = getWaveBaseScore(hEffectiveHeight);
           const hWindDirStr = degreesToDir(hWindDir?.[i]);
           const hWindSpdMs = (hWindSpeed?.[i] ?? null) !== null ? (hWindSpeed![i]! / 3.6) : 0;
-          const hPeriod = hWavePeriod?.[i] ?? 0;
-          const hIsBestSwell = checkBestSwell(point.bestSwell, hWDirStr, hPeriod)
+
+          // スウェル分離解析
+          const hHasSwellData = hSwellHeight !== null || hWindWaveHeight !== null;
+          const hSwellAnalysis = hHasSwellData
+            ? analyzeSwellComponents({
+                swellHeight:    hSwellHeight?.[i] ?? null,
+                swellDir:       hSwellDir?.[i] ?? null,
+                swellPeriod:    hSwellPeriod?.[i] ?? null,
+                windWaveHeight: hWindWaveHeight?.[i] ?? null,
+                windWaveDir:    hWindWaveDir?.[i] ?? null,
+                windWavePeriod: hWindWavePeriod?.[i] ?? null,
+                beachFacing: point.beachFacing,
+              })
+            : null;
+
+          const hEffectiveHeight = hSwellAnalysis
+            ? hSwellAnalysis.combinedEffectiveHeight
+            : calculateEffectiveHeight(hRawHeight, hWDirStr, point.beachFacing, hWavePeriod?.[i]);
+
+          const hWBase = getWaveBaseScore(hEffectiveHeight);
+          const hPeriod = hSwellAnalysis ? hSwellAnalysis.dominantPeriod : (hWavePeriod?.[i] ?? 0);
+
+          const hSwellDirStr = hSwellAnalysis
+            ? degreesToDir(hSwellDir?.[i])
+            : hWDirStr;
+          const hSwellPer = hSwellPeriod?.[i] ?? hPeriod;
+          const hIsBestSwell = checkBestSwell(point.bestSwell, hSwellDirStr, hSwellPer)
             && hWBase.score >= 3
             && hWindSpdMs <= 5;
           const hWindEffect = getWindEffect(point.beachFacing, hWindDirStr, hWindSpdMs);
 
-          // 潮位: 天文潮汐計算（外部API不要・JMA調和定数使用）
-          const tideHeight = computeTideHeight(new Date(time).getTime(), point.tideStation);
+          // 潮位と潮汐フェーズ: 天文潮汐計算（外部API不要・JMA調和定数使用）
+          const tMs = new Date(time).getTime();
+          const tideHeight = computeTideHeight(tMs, point.tideStation);
+          const hTidePhase = computeTidePhase(tMs, point.tideStation);
+          const hTideScoreEffect = getTideScoreEffect(hTidePhase);
 
           return {
             time,
             waveHeight: hEffectiveHeight,
-            rawWaveHeight: hSwellHeight,
+            rawWaveHeight: hRawHeight,
             waveLabel: hWBase.label,
             waveRange: hWBase.range,
             period: hPeriod,
             windSpeed: hWindSpdMs,
             windDir: hWindDirStr,
-            quality: calculateQuality(hWBase.score, hWindEffect, hIsBestSwell, hEffectiveHeight, hPeriod),
-            tide: tideHeight
+            quality: calculateQuality(
+              hWBase.score, hWindEffect, hIsBestSwell, hEffectiveHeight, hPeriod,
+              hSwellAnalysis?.isSwellDominant,
+              hTideScoreEffect
+            ),
+            tide: tideHeight,
+            swellHeight:     hSwellAnalysis?.effectiveSwellHeight,
+            windWaveHeight:  hSwellAnalysis?.effectiveWindWaveHeight,
+            isSwellDominant: hSwellAnalysis?.isSwellDominant,
           };
         })
       : [];
@@ -234,11 +365,11 @@ async function processPoint(point: typeof surfPoints[0]) {
       : [];
 
     const conditionSummary = generateConditionSummary({
-      waveDirectionStr: convertWindDirection(waveDirStr),
+      waveDirectionStr: convertWindDirection(dominantDirStr),
       isBestSwell,
       effectiveHeight,
       waveLabel: waveBase.label,
-      period: waveRes.current?.wave_period ?? 0,
+      period: curPeriod,
       windDirStr,
       windSpeed: windSpeedMs,
       beachFacing: point.beachFacing,
@@ -251,10 +382,10 @@ async function processPoint(point: typeof surfPoints[0]) {
       heightMeters: effectiveHeight,
       rawSwellHeight: curWave,
       heightRange: waveBase.range,
-      period: waveRes.current?.wave_period ?? 0,
+      period: curPeriod,
       windSpeed: windSpeedMs,
       windDirection: windDirStr,
-      waveDirectionStr: waveDirStr,
+      waveDirectionStr: dominantDirStr,
       waveDirectionDeg: curWaveDir ?? 0,
       isBestSwell,
       beachFacing: point.beachFacing,
@@ -267,6 +398,12 @@ async function processPoint(point: typeof surfPoints[0]) {
       nextUpdate: '1時間後',
       note: point.note,
       bestSwell: point.bestSwell,
+      // スウェル分離データ
+      swellHeight:     swellAnalysis?.effectiveSwellHeight,
+      swellDirStr:     swellAnalysis ? degreesToDir(curSwellDir) : undefined,
+      swellPeriod:     curSwellPeriod ?? undefined,
+      windWaveHeight:  swellAnalysis?.effectiveWindWaveHeight,
+      isSwellDominant: swellAnalysis?.isSwellDominant,
       hourly: hourlyData,
       daily: dailyData
     };

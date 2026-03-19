@@ -109,7 +109,9 @@ export function calculateQuality(
   windEffect: number,
   isBestSwell: boolean,
   effectiveHeight: number,
-  period: number
+  period: number,
+  isSwellDominant?: boolean,  // スウェル成分が風波より支配的か
+  tideScoreEffect?: number    // 潮汐フェーズによる補正スコア
 ): 'S' | 'A' | 'B' | 'C' | 'D' {
   // フラットは方向・風に関わらず問答無用でD
   if (effectiveHeight < 0.2) return 'D';
@@ -119,6 +121,12 @@ export function calculateQuality(
   // 周期ペナルティ: 6秒以下の風波はパワーが弱くグレードを下げる
   if (period > 0 && period <= 6) finalScore -= 1;
 
+  // 風波ドミナントペナルティ: スウェル成分が分離できており、かつ風波が支配的な場合
+  if (isSwellDominant === false) finalScore -= 1;
+
+  // 潮汐フェーズ補正
+  if (tideScoreEffect !== undefined && tideScoreEffect > 0) finalScore += tideScoreEffect;
+
   // BESTボーナス: 本物のうねり(8秒以上)かつ波がある場合のみ
   if (isBestSwell && period >= 8 && baseScore >= 2) finalScore += 1;
 
@@ -127,6 +135,51 @@ export function calculateQuality(
   if (finalScore >= 3) return 'B';
   if (finalScore >= 2) return 'C';
   return 'D';
+}
+
+/**
+ * スウェル成分と風波成分を分離して解析する
+ * - 有効スウェル高 / 有効風波高を個別計算
+ * - 波エネルギー合成: combined = √(swell² + windWave²)
+ * - ドミナント成分（周期・方向）を返す
+ */
+export function analyzeSwellComponents(params: {
+  swellHeight: number | null;
+  swellDir: number | null;
+  swellPeriod: number | null;
+  windWaveHeight: number | null;
+  windWaveDir: number | null;
+  windWavePeriod: number | null;
+  beachFacing: string;
+}): {
+  effectiveSwellHeight: number;
+  effectiveWindWaveHeight: number;
+  combinedEffectiveHeight: number;
+  dominantPeriod: number;
+  dominantDirStr: string;
+  isSwellDominant: boolean;
+} {
+  const { swellHeight, swellDir, swellPeriod, windWaveHeight, windWaveDir, windWavePeriod, beachFacing } = params;
+
+  const swellDirStr = degreesToDir(swellDir);
+  const windWaveDirStr = degreesToDir(windWaveDir);
+
+  const effSwell = calculateEffectiveHeight(swellHeight, swellDirStr, beachFacing, swellPeriod);
+  const effWindWave = calculateEffectiveHeight(windWaveHeight, windWaveDirStr, beachFacing, windWavePeriod);
+
+  // 波エネルギーの合成（二乗和の平方根）
+  const combined = Math.sqrt(effSwell ** 2 + effWindWave ** 2);
+
+  const isSwellDominant = effSwell >= effWindWave;
+
+  return {
+    effectiveSwellHeight: effSwell,
+    effectiveWindWaveHeight: effWindWave,
+    combinedEffectiveHeight: Math.round(combined * 100) / 100,
+    dominantPeriod: isSwellDominant ? (swellPeriod ?? 0) : (windWavePeriod ?? 0),
+    dominantDirStr: isSwellDominant ? swellDirStr : windWaveDirStr,
+    isSwellDominant,
+  };
 }
 
 // ベストスウェル判定

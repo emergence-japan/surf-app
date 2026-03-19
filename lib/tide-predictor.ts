@@ -212,6 +212,45 @@ export function computeTideHeight(timeMs: number, stationKey: TideStationKey): n
   return Math.round(height * 100) / 100; // cm単位で丸め
 }
 
+export type TidePhase = 'rising' | 'falling' | 'high' | 'low';
+
+/**
+ * 潮汐フェーズと±30分の変化量から上げ/下げ/満潮/干潮を判定する
+ * - 変化量が ±0.03m/h 未満 → 満潮または干潮（転換点）
+ * - 正の変化量 → 上げ潮
+ * - 負の変化量 → 下げ潮
+ */
+export function computeTidePhase(timeMs: number, stationKey: TideStationKey): TidePhase {
+  const prev = computeTideHeight(timeMs - 30 * 60 * 1000, stationKey);
+  const next = computeTideHeight(timeMs + 30 * 60 * 1000, stationKey);
+  const rate = next - prev; // 1時間あたりの変化量 [m/h]
+
+  if (Math.abs(rate) < 0.03) {
+    const curr = computeTideHeight(timeMs, stationKey);
+    const nearby = [
+      computeTideHeight(timeMs - 2 * 3600 * 1000, stationKey),
+      computeTideHeight(timeMs + 2 * 3600 * 1000, stationKey),
+    ];
+    const avg = (nearby[0] + nearby[1]) / 2;
+    return curr >= avg ? 'high' : 'low';
+  }
+
+  return rate > 0 ? 'rising' : 'falling';
+}
+
+/**
+ * 潮汐フェーズがサーフィンコンディションに与える影響スコアを返す
+ * - 満潮直後の下げ始め: +1（多くのポイントで形が良くなりやすい）
+ * - 干潮: +1（リーフ・サンドバー系ポイントで波が掘れやすい）
+ * - 上げ潮: 0
+ * - 急激な満潮: 0（カレントが強くなりやすいが判定が難しいため中立）
+ */
+export function getTideScoreEffect(phase: TidePhase): number {
+  if (phase === 'low') return 1;    // 干潮: サンドバー・リーフが機能しやすい
+  if (phase === 'falling') return 1; // 下げ潮: 波が掘れやすい
+  return 0;
+}
+
 /**
  * 指定期間の時間別潮汐データを生成する
  * @param startMs  開始時刻 [ms]

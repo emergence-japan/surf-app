@@ -27,6 +27,10 @@ export interface HourlyForecastData {
     windDir: string;
     quality: QualityLevel;
     tide?: number;
+    // スウェル分離データ
+    swellHeight?: number;       // グラウンドスウェル有効波高 [m]
+    windWaveHeight?: number;    // 風波有効波高 [m]
+    isSwellDominant?: boolean;  // スウェルが風波より支配的か
 }
 
 // Daily forecast data
@@ -57,6 +61,12 @@ export interface SurfPointDetail extends SurfPointSummary {
     conditionSummary: string;
     hourly: HourlyForecastData[];
     daily: DailyForecastData[];
+    // スウェル分離データ
+    swellHeight?: number;       // グラウンドスウェル有効波高 [m]
+    swellDirStr?: string;       // スウェル方向
+    swellPeriod?: number;       // スウェル周期 [s]
+    windWaveHeight?: number;    // 風波有効波高 [m]
+    isSwellDominant?: boolean;  // スウェルが風波より支配的か
 }
 
 // Tide chart data point
