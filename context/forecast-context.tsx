@@ -1,6 +1,6 @@
 'use client';
 
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
 import { SurfPointDetail } from '@/lib/types';
 
 interface ForecastContextType {
@@ -54,7 +54,7 @@ export function ForecastProvider({ children }: { children: ReactNode }) {
     const [errorMessage, setErrorMessage] = useState<string | null>(null);
     const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
 
-    const fetchData = async () => {
+    const fetchData = useCallback(async () => {
         setIsLoading(true);
         setIsError(false);
         setErrorMessage(null);
@@ -72,7 +72,6 @@ export function ForecastProvider({ children }: { children: ReactNode }) {
             setLastUpdated(new Date());
             writeCache(data);
         } catch (error) {
-            console.error('Failed to fetch forecast:', error);
             setIsError(true);
             setErrorMessage(
                 error instanceof Error
@@ -83,20 +82,18 @@ export function ForecastProvider({ children }: { children: ReactNode }) {
         } finally {
             setIsLoading(false);
         }
-    };
+    }, []);
 
     useEffect(() => {
-        // キャッシュがあれば即時表示してからバックグラウンドで更新
         const cached = readCache();
         if (cached) {
             setAllBeachesData(cached);
             setIsLoading(false);
-            setLastUpdated(new Date()); // キャッシュ読み込み時刻
-            return; // キャッシュ有効期限内はフェッチしない
+            setLastUpdated(new Date());
+            return;
         }
         fetchData();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, []);
+    }, [fetchData]);
 
     return (
         <ForecastContext.Provider value={{

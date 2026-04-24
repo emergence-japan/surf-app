@@ -11,9 +11,12 @@ const MAX_REQUESTS = 60;   // 1分あたり最大60リクエスト/IP
 const store = new Map<string, { count: number; resetAt: number }>();
 
 function getClientIp(req: NextRequest): string {
+  // Vercel Edge Runtime は NextRequest に ip プロパティを注入するが、
+  // 型定義には含まれないため型アサーションで取得する
+  const vercelIp = (req as NextRequest & { ip?: string }).ip;
   return (
-    req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ??
-    req.headers.get('x-real-ip') ??
+    vercelIp ??
+    req.headers.get('x-forwarded-for')?.split(',').at(-1)?.trim() ??
     'unknown'
   );
 }
@@ -22,13 +25,14 @@ export function middleware(request: NextRequest) {
   const ip = getClientIp(request);
   const now = Date.now();
 
-  const record = store.get(ip);
-  if (!record || now > record.resetAt) {
+  const prev = store.get(ip);
+  if (!prev || now > prev.resetAt) {
     store.set(ip, { count: 1, resetAt: now + WINDOW_MS });
     return addRateLimitHeaders(NextResponse.next(), 1, MAX_REQUESTS, now + WINDOW_MS);
   }
 
-  record.count++;
+  const record = { count: prev.count + 1, resetAt: prev.resetAt };
+  store.set(ip, record);
 
   if (record.count > MAX_REQUESTS) {
     const retryAfter = Math.ceil((record.resetAt - now) / 1000);

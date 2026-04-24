@@ -2,27 +2,74 @@
 
 import { useState } from "react"
 import Link from "next/link"
-import { Wind, MapPin, Search, Activity, Waves, Timer, ArrowUp, Zap, Navigation, AlertTriangle, RefreshCw } from 'lucide-react'
+import { Wind, MapPin, Search, Activity, ArrowUp, AlertTriangle, RefreshCw, Waves } from 'lucide-react'
 import Header from "@/components/header"
 import { useForecast } from "@/context/forecast-context"
 import { convertWindDirection } from "@/lib/converters"
-import VisualWaveHeight from "@/components/visual-wave-height"
 
-const qualityConfig: Record<string, { style: string }> = {
-  'S': { style: 'bg-indigo-50 border-indigo-200 text-indigo-600' },
-  'A': { style: 'bg-blue-50 border-blue-200 text-blue-600' },
-  'B': { style: 'bg-emerald-50 border-emerald-200 text-emerald-600' },
-  'C': { style: 'bg-amber-50 border-amber-200 text-amber-600' },
-  'D': { style: 'bg-slate-50 border-slate-200 text-slate-600' },
+const qualityConfig: Record<string, {
+  label: string;
+  gradientFrom: string;
+  gradientTo: string;
+  badge: string;
+  border: string;
+  glow: string;
+}> = {
+  'S': {
+    label: 'EPIC',
+    gradientFrom: 'from-amber-400',
+    gradientTo: 'to-orange-500',
+    badge: 'bg-gradient-to-r from-amber-400 to-orange-500 text-white',
+    border: 'border-amber-300',
+    glow: 'shadow-amber-200',
+  },
+  'A': {
+    label: 'GREAT',
+    gradientFrom: 'from-blue-500',
+    gradientTo: 'to-cyan-400',
+    badge: 'bg-gradient-to-r from-blue-500 to-cyan-400 text-white',
+    border: 'border-blue-300',
+    glow: 'shadow-blue-100',
+  },
+  'B': {
+    label: 'GOOD',
+    gradientFrom: 'from-emerald-500',
+    gradientTo: 'to-teal-400',
+    badge: 'bg-gradient-to-r from-emerald-500 to-teal-400 text-white',
+    border: 'border-emerald-300',
+    glow: 'shadow-emerald-100',
+  },
+  'C': {
+    label: 'FAIR',
+    gradientFrom: 'from-slate-400',
+    gradientTo: 'to-slate-500',
+    badge: 'bg-gradient-to-r from-slate-400 to-slate-500 text-white',
+    border: 'border-slate-200',
+    glow: 'shadow-slate-100',
+  },
+  'D': {
+    label: 'POOR',
+    gradientFrom: 'from-slate-300',
+    gradientTo: 'to-slate-400',
+    badge: 'bg-gradient-to-r from-slate-300 to-slate-400 text-white',
+    border: 'border-slate-200',
+    glow: 'shadow-slate-100',
+  },
 };
+
+const qualityOrder: Record<string, number> = { S: 0, A: 1, B: 2, C: 3, D: 4 };
 
 export default function Home() {
   const { allBeachesData, isLoading, isError, errorMessage, refreshData } = useForecast();
   const [searchQuery, setSearchQuery] = useState("");
 
-  const filteredPoints = allBeachesData.filter(point =>
-    point.beach.toLowerCase().includes(searchQuery.toLowerCase())
-  ).sort((a, b) => (b.heightMeters || 0) - (a.heightMeters || 0));
+  const filteredPoints = allBeachesData
+    .filter(point => point.beach.toLowerCase().includes(searchQuery.toLowerCase()))
+    .sort((a, b) => {
+      const qDiff = (qualityOrder[a.quality] ?? 5) - (qualityOrder[b.quality] ?? 5);
+      if (qDiff !== 0) return qDiff;
+      return (b.heightMeters || 0) - (a.heightMeters || 0);
+    });
 
   return (
     <main className="min-h-screen relative bg-[#F0F9FF] overflow-x-hidden">
@@ -32,9 +79,7 @@ export default function Home() {
         <div className="absolute inset-0 bg-gradient-to-b from-sky-400/20 via-white to-[#E0F2FE]" />
         <div className="absolute top-[20%] left-[-10%] w-[120vw] h-[60vh] bg-blue-400/5 rounded-[100%] rotate-[-5deg] blur-3xl animate-pulse" />
         <div className="absolute top-[40%] right-[-10%] w-[120vw] h-[50vh] bg-cyan-400/5 rounded-[100%] rotate-[3deg] blur-3xl" />
-        <div className="absolute inset-0 opacity-[0.05]"
-          style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg width='100' height='20' viewBox='0 0 100 20' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M21.184 20c.357-.13.72-.264 1.088-.402l1.768-.661C33.64 15.347 39.647 13 50 13s16.36 2.347 25.96 5.937l1.768.662c.368.138.73.272 1.088.401H100V0H0v20h21.184z' fill='%230ea5e9' fill-rule='evenodd'/%3E%3C/svg%3E")`, backgroundSize: '400px 80px' }}
-        />
+        <div className="absolute inset-0 ocean-wave-pattern" />
       </div>
 
       {/* Hero Section */}
@@ -91,23 +136,22 @@ export default function Home() {
         </div>
       </section>
 
-      {/* Cards Section */}
-      <section className="container mx-auto px-6 py-20 relative z-10">
-        <div className="flex items-end justify-between mb-12 px-4 border-b border-blue-100 pb-8">
-          <div className="space-y-1">
-            <h2 className="text-xs font-black uppercase tracking-[0.4em] text-blue-600">Coastal Precision</h2>
-            <p className="text-4xl font-bold text-slate-900 tracking-tight">Active Surf Breaks</p>
+      {/* Card Grid Section */}
+      <section className="container mx-auto px-4 md:px-6 py-16 relative z-10 max-w-6xl">
+
+        {/* Section Header */}
+        <div className="flex items-center justify-between mb-10 px-1">
+          <div>
+            <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-[0.2em] mb-1">Now Casting</p>
+            <p className="text-xl font-bold text-slate-800 tracking-tight">今日の波情報</p>
           </div>
-          <div className="flex items-center gap-3 text-[10px] font-bold text-blue-600 bg-white shadow-sm px-5 py-2.5 rounded-full border border-blue-50">
-            <Waves size={14} className="text-blue-400 animate-bounce" />
-            {filteredPoints.length} STATIONS TRACKING
-          </div>
+          <p className="text-[11px] font-medium text-slate-400">{filteredPoints.length} スポット</p>
         </div>
 
         {isLoading ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {[1, 2, 3, 4, 5, 6].map((i) => (
-              <div key={i} className="h-72 bg-white/50 rounded-[2.5rem] animate-pulse border border-white" />
+              <div key={i} className="h-52 bg-white/60 rounded-3xl animate-pulse border border-white shadow-sm" />
             ))}
           </div>
         ) : isError ? (
@@ -128,124 +172,87 @@ export default function Home() {
             </button>
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {filteredPoints.map((point) => {
-              // ビーチ名から都道府県とスポット名を分割（例: "福井 鳥居浜" → ["福井", "鳥居浜"]）
               const [prefecture, ...spotParts] = point.beach.split(/\s+/);
               const spotName = spotParts.join(' ') || point.beach;
-              const qStyle = qualityConfig[point.quality]?.style ?? 'bg-slate-50 border-slate-200 text-slate-600';
+              const cfg = qualityConfig[point.quality] ?? qualityConfig['D'];
 
               return (
-                <Link key={point.id} href={`/point/${point.id}`} className="group block">
-                  <div className="relative h-full flex flex-col rounded-[2rem] p-6 transition-all duration-700
-                    bg-white/50 backdrop-blur-3xl backdrop-saturate-150
-                    border border-white/80 shadow-[0_20px_50px_-20px_rgba(0,0,0,0.07)]
-                    hover:-translate-y-3 hover:shadow-[0_40px_80px_-20px_rgba(30,58,138,0.15)]
-                    hover:bg-white/75 overflow-hidden">
+                <Link key={point.id} href={`/point/${point.id}`}>
+                  <div className={`group relative bg-white rounded-3xl border ${cfg.border} shadow-lg ${cfg.glow} hover:shadow-xl hover:-translate-y-1 transition-all duration-300 overflow-hidden cursor-pointer`}>
 
-                    {/* 光沢エフェクト */}
-                    <div className="absolute inset-0 bg-gradient-to-tr from-transparent via-white/30 to-transparent translate-x-[-150%] group-hover:translate-x-[150%] transition-transform duration-1000 ease-in-out pointer-events-none" />
+                    {/* Top color bar */}
+                    <div className={`h-1.5 w-full bg-gradient-to-r ${cfg.gradientFrom} ${cfg.gradientTo}`} />
 
-                    {/* ヘッダー */}
-                    <div className="flex justify-between items-start mb-5 relative z-10">
-                      <div>
-                        <div className="flex items-center gap-1.5 mb-1.5 text-blue-500">
-                          <MapPin size={11} />
-                          <span className="text-[11px] font-bold tracking-[0.15em] uppercase">{prefecture}</span>
-                        </div>
-                        <h3 className="text-2xl font-bold text-slate-900 tracking-tight leading-tight group-hover:text-blue-600 transition-colors duration-300">
-                          {spotName}
-                        </h3>
-                      </div>
+                    <div className="p-5">
 
-                      {/* グレードバッジ + BEST */}
-                      <div className="flex flex-col items-end gap-1.5 shrink-0 ml-3">
-                        <div className={`w-11 h-11 rounded-xl flex items-center justify-center text-base font-black border shadow-sm ${qStyle}`}>
-                          {point.quality}
-                        </div>
-                        {point.isBestSwell && (
-                          <div className="flex items-center gap-1 px-2.5 py-0.5 bg-amber-50 border border-amber-200 rounded-full text-amber-600">
-                            <Zap size={10} />
-                            <span className="text-[10px] font-black tracking-wider">BEST</span>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-
-                    {/* 波高 + ビジュアル */}
-                    <div className="flex items-center justify-between mb-4 relative z-10">
-                      <div>
-                        <p className="text-[11px] font-bold text-slate-400 uppercase tracking-[0.2em] mb-1.5">波のサイズ</p>
-                        <span className="text-3xl font-black text-slate-900 tracking-tighter">
-                          {point.height}
+                      {/* Header: Quality badge + Best Swell */}
+                      <div className="flex items-center justify-between mb-4">
+                        <span className={`text-[11px] font-black tracking-widest px-3 py-1 rounded-full ${cfg.badge}`}>
+                          {point.quality} · {cfg.label}
                         </span>
-                        {(point.heightMeters || 0) > 0 && (
-                          <span className="text-sm font-bold text-blue-400 ml-2">
-                            {(point.heightMeters || 0).toFixed(1)}m
+                        {point.isBestSwell && (
+                          <span className="text-[10px] font-bold text-amber-500 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-full">
+                            ★ BEST
                           </span>
                         )}
                       </div>
-                      <VisualWaveHeight
-                        heightMeters={point.heightMeters || 0}
-                        className="w-20 h-20 relative z-10 drop-shadow-lg"
-                      />
-                    </div>
 
-                    {/* コンディション解説 */}
-                    <div className="flex items-start gap-2.5 bg-blue-50/70 border border-blue-100/80 rounded-xl px-3.5 py-2.5 mb-5 relative z-10">
-                      <Activity size={13} className="text-blue-400 mt-0.5 shrink-0" />
-                      <p className="text-[12px] leading-relaxed text-slate-600">
-                        {point.conditionSummary}
-                      </p>
-                    </div>
-
-                    {/* 統計グリッド（3列） */}
-                    <div className="grid grid-cols-3 gap-2 pt-4 border-t border-blue-100/60 relative z-10 mt-auto">
-
-                      {/* 周期 */}
-                      <div className="bg-white/70 rounded-xl p-3">
-                        <div className="flex items-center gap-1.5 text-slate-400 mb-2">
-                          <Timer size={11} />
-                          <span className="text-[11px] font-bold uppercase tracking-[0.1em]">周期</span>
+                      {/* Spot name */}
+                      <div className="mb-4">
+                        <div className="flex items-center gap-1.5 mb-0.5">
+                          <MapPin size={11} className="text-slate-400 shrink-0" />
+                          <span className="text-[11px] text-slate-400 font-medium">{prefecture}</span>
                         </div>
-                        <p className="text-2xl font-black text-slate-800 tracking-tight leading-none">
-                          {point.period?.toFixed(0) ?? '-'}
+                        <p className="text-[19px] font-bold text-slate-800 leading-tight group-hover:text-blue-600 transition-colors">
+                          {spotName}
                         </p>
-                        <span className="text-[11px] font-bold text-slate-400">sec</span>
                       </div>
 
-                      {/* 風 */}
-                      <div className="bg-white/70 rounded-xl p-3">
-                        <div className="flex items-center gap-1.5 text-slate-400 mb-2">
-                          <Wind size={11} />
-                          <span className="text-[11px] font-bold uppercase tracking-[0.1em]">風速</span>
+                      {/* Wave height — hero stat */}
+                      <div className="flex items-end justify-between mb-4">
+                        <div>
+                          <p className="text-[11px] text-slate-400 font-medium mb-0.5">波のサイズ</p>
+                          <p className="text-2xl font-black text-slate-800 leading-none">{point.height}</p>
+                          <p className="text-[12px] text-slate-500 mt-1">{point.heightMeters?.toFixed(1) ?? '—'} m</p>
                         </div>
-                        <p className="text-2xl font-black text-slate-800 tracking-tight leading-none">
-                          {point.windSpeed?.toFixed(1) ?? '-'}
-                        </p>
-                        <div className="flex items-center gap-1 mt-0.5">
-                          <span className="text-[11px] font-bold text-slate-400">m/s</span>
-                          <span className="text-[11px] font-bold text-blue-500 uppercase">
-                            {convertWindDirection(point.windDirection)}
-                          </span>
+
+                        {/* Wave height bar */}
+                        <div className="flex items-end gap-0.5 h-10">
+                          {[0.2, 0.4, 0.6, 0.8, 1.0].map((threshold, i) => {
+                            const filled = (point.heightMeters ?? 0) > threshold;
+                            return (
+                              <div
+                                key={i}
+                                className={`w-2.5 rounded-sm transition-all duration-500 ${filled
+                                  ? `bg-gradient-to-t ${cfg.gradientFrom} ${cfg.gradientTo} opacity-90`
+                                  : 'bg-slate-100'
+                                  }`}
+                                style={{ height: `${(i + 1) * 20}%` }}
+                              />
+                            );
+                          })}
                         </div>
                       </div>
 
-                      {/* うねり方向 */}
-                      <div className="bg-white/70 rounded-xl p-3">
-                        <div className="flex items-center gap-1.5 text-slate-400 mb-2">
-                          <Navigation size={11} />
-                          <span className="text-[11px] font-bold uppercase tracking-[0.1em]">うねり</span>
+                      {/* Stats row */}
+                      <div className="flex items-center gap-4 pt-3 border-t border-slate-100">
+                        <div className="flex items-center gap-1.5 text-slate-500">
+                          <Waves size={12} className="text-slate-400" />
+                          <span className="text-[12px] font-semibold">{point.period?.toFixed(0) ?? '—'}s</span>
                         </div>
-                        <div className="flex items-center gap-1.5 mt-1">
+                        <div className="flex items-center gap-1.5 text-slate-500">
+                          <Wind size={12} className="text-slate-400" />
+                          <span className="text-[12px] font-semibold">{point.windSpeed?.toFixed(1) ?? '—'} m/s</span>
+                        </div>
+                        <div className="flex items-center gap-1 text-slate-500 ml-auto">
                           <ArrowUp
-                            size={22}
-                            className="text-blue-500 shrink-0"
-                            style={{ transform: `rotate(${point.waveDirectionDeg}deg)` }}
+                            size={12}
+                            className="text-slate-400 shrink-0"
+                            style={{ transform: `rotate(${(point.waveDirectionDeg ?? 0) + 180}deg)` }}
                           />
-                          <p className="text-[12px] font-black text-slate-700 leading-tight">
-                            {convertWindDirection(point.waveDirectionStr)}
-                          </p>
+                          <span className="text-[12px] font-semibold">{convertWindDirection(point.waveDirectionStr)}</span>
                         </div>
                       </div>
 

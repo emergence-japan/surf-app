@@ -1,7 +1,7 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
-import { useParams, useRouter } from 'next/navigation';
+import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useParams } from 'next/navigation';
 import { Cloud, Wind, Droplets, MapPin, ArrowUp, Thermometer, ArrowLeft, Waves, Clock, Info, ShieldCheck } from 'lucide-react';
 import Header from '@/components/header';
 import WaveCard from '@/components/wave-card';
@@ -11,7 +11,22 @@ import WeeklyForecast from '@/components/weekly-forecast';
 import { convertWindDirection } from '@/lib/converters';
 import Link from 'next/link';
 import { useForecast } from '@/context/forecast-context';
-import { SurfPointDetail } from '@/lib/types';
+import { SurfPointDetail, QualityLevel } from '@/lib/types';
+
+interface WaveCardData {
+    id: string;
+    beach: string;
+    height: string;
+    heightValue: number;
+    period: number;
+    windSpeed: number;
+    windDirection: string;
+    quality: QualityLevel;
+    time: string;
+    temperature: number;
+}
+
+const TIDE_CHART_HOURS = 24;
 
 const dirToDeg: Record<string, number> = {
     N: 0, NNE: 22.5, NE: 45, ENE: 67.5,
@@ -26,18 +41,39 @@ export default function PointDetail() {
     const { allBeachesData, isLoading: isContextLoading, lastUpdated } = useForecast();
 
     const [target, setTarget] = useState<SurfPointDetail | null>(null);
-    const [waveData, setWaveData] = useState<any[]>([]);
+    const [waveData, setWaveData] = useState<WaveCardData[]>([]);
     const [expandedCard, setExpandedCard] = useState<string | null>(null);
+
+    const buildWaveData = useCallback((point: SurfPointDetail): WaveCardData[] => {
+        if (!point.hourly) return [];
+        const now = new Date();
+        return point.hourly
+            .filter((h) => h && h.time && new Date(h.time) >= now)
+            .filter((_, i) => i % 3 === 0)
+            .slice(0, 4)
+            .map((h, i) => ({
+                id: `${point.id}-h-${i}`,
+                beach: point.beach,
+                height: h.waveLabel || '-',
+                heightValue: h.waveHeight || 0,
+                period: h.period || 0,
+                windSpeed: h.windSpeed || 0,
+                windDirection: h.windDir || '-',
+                quality: h.quality || 'C',
+                time: h.time ? new Date(h.time).toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' }) : '--:--',
+                temperature: point.temperature ?? 0,
+            }));
+    }, []);
 
     useEffect(() => {
         if (!isContextLoading && allBeachesData.length > 0) {
             const foundNode = allBeachesData.find(d => d.id === id);
             if (foundNode) {
                 setTarget(foundNode);
-                updateWaveData(foundNode);
+                setWaveData(buildWaveData(foundNode));
             }
         }
-    }, [id, allBeachesData, isContextLoading]);
+    }, [id, allBeachesData, isContextLoading, buildWaveData]);
 
     // 最終更新からの経過時間を表示用文字列に変換
     const lastUpdatedLabel = useMemo(() => {
@@ -63,27 +99,6 @@ export default function PointDetail() {
         if (diff <= 2) return speed > 4 ? '強いオンショア' : '弱いオンショア';
         return 'サイドウィンド';
     }, [target]);
-
-    const updateWaveData = (target: SurfPointDetail) => {
-        if (!target || !target.hourly) return;
-        const now = new Date();
-        const formattedHourly = target.hourly
-            .filter((h) => h && h.time && new Date(h.time) >= now)
-            .filter((_, i) => i % 3 === 0)
-            .slice(0, 4)
-            .map((h, i) => ({
-                id: `${target.id}-h-${i}`,
-                beach: target.beach,
-                height: h.waveLabel || '-',
-                heightValue: h.waveHeight || 0,
-                period: h.period || 0,
-                windSpeed: h.windSpeed || 0,
-                windDirection: h.windDir || '-',
-                quality: h.quality || 'C',
-                time: h.time ? new Date(h.time).toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' }) : '--:--',
-            }));
-        setWaveData(formattedHourly);
-    };
 
     if (isContextLoading) {
         return (
@@ -286,7 +301,7 @@ export default function PointDetail() {
                             {target.hourly && (
                                 <TideChart
                                     data={target.hourly
-                                        .filter((h, index) => index < 24)
+                                        .filter((h, index) => index < TIDE_CHART_HOURS)
                                         .map(h => ({
                                             time: new Date(h.time).toLocaleTimeString('ja-JP', {
                                                 hour: '2-digit',
