@@ -65,8 +65,12 @@
     "xlsx": "^0.18.5",
     "zod": "3.25.76"
   },
+  "pnpm": {
+    "onlyBuiltDependencies": ["@sentry/cli", "sharp"]
+  },
   "devDependencies": {
     "@tailwindcss/postcss": "^4.1.9",
+    "import-in-the-middle": "^1.11.2",
     "@types/node": "^22",
     "@types/react": "^19",
     "@types/react-dom": "^19",
