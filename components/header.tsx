@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { Menu, X } from 'lucide-react';
 import Link from 'next/link';
+import { useBoardType } from '@/context/board-type-context';
 
 function SwellLogo() {
   return (
@@ -17,6 +18,32 @@ function SwellLogo() {
         stroke="white" strokeWidth="1.4" strokeLinecap="round" fill="none" opacity="0.35"
       />
     </svg>
+  );
+}
+
+function BoardToggle() {
+  const { boardType, setBoardType } = useBoardType();
+  return (
+    <div className="inline-flex items-center bg-[#F5F5F5] rounded-full p-0.5 shrink-0">
+      <button
+        onClick={() => setBoardType('short')}
+        className={`px-2.5 py-1 text-[10px] font-bold rounded-full transition-colors whitespace-nowrap ${
+          boardType === 'short' ? 'bg-[#0d1b2a] text-white' : 'text-[#707072]'
+        }`}
+        aria-pressed={boardType === 'short'}
+      >
+        ショート
+      </button>
+      <button
+        onClick={() => setBoardType('long')}
+        className={`px-2.5 py-1 text-[10px] font-bold rounded-full transition-colors whitespace-nowrap ${
+          boardType === 'long' ? 'bg-[#0d1b2a] text-white' : 'text-[#707072]'
+        }`}
+        aria-pressed={boardType === 'long'}
+      >
+        ロング
+      </button>
+    </div>
   );
 }
 
@@ -37,27 +64,27 @@ export default function Header() {
       <div className="max-w-2xl mx-auto px-4 md:px-6">
         <div className="flex items-center justify-between h-14">
           {/* Logo */}
-          <Link href="/" className="flex items-center gap-2.5">
+          <Link href="/" className="flex items-center gap-2 min-w-0">
             <SwellLogo />
-            <div>
-              <p
-                className="text-[#0d1b2a] leading-none"
-                style={{ fontFamily: "'Barlow Condensed', Helvetica, Arial, sans-serif", fontWeight: 700, fontSize: 20, letterSpacing: '-0.01em' }}
-              >
-                SWELL<span className="text-[#06b6d4]">.</span>
-              </p>
-              <p className="text-[9px] font-semibold uppercase tracking-[0.2em] text-[#9E9EA0] mt-0.5">波予測プレミアム</p>
-            </div>
+            <p
+              className="text-[#0d1b2a] leading-none whitespace-nowrap"
+              style={{ fontFamily: "'Barlow Condensed', Helvetica, Arial, sans-serif", fontWeight: 700, fontSize: 20, letterSpacing: '-0.01em' }}
+            >
+              SWELL<span className="text-[#06b6d4]">.</span>
+            </p>
           </Link>
 
-          {/* Mobile menu toggle */}
-          <button
-            onClick={() => setIsMenuOpen(v => !v)}
-            className="w-9 h-9 rounded-lg flex items-center justify-center text-[#707072] hover:bg-[#F5F5F5] transition-colors"
-            aria-label="Toggle menu"
-          >
-            {isMenuOpen ? <X size={20} /> : <Menu size={20} />}
-          </button>
+          {/* Right: board toggle + menu */}
+          <div className="flex items-center gap-2">
+            <BoardToggle />
+            <button
+              onClick={() => setIsMenuOpen(v => !v)}
+              className="w-9 h-9 rounded-lg flex items-center justify-center text-[#707072] hover:bg-[#F5F5F5] transition-colors"
+              aria-label="Toggle menu"
+            >
+              {isMenuOpen ? <X size={20} /> : <Menu size={20} />}
+            </button>
+          </div>
         </div>
 
         {/* Mobile dropdown */}

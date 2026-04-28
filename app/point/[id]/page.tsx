@@ -2,7 +2,7 @@
 
 import { useMemo, useCallback, useState, useEffect } from 'react';
 import { useParams } from 'next/navigation';
-import { Wind, ArrowUp, ArrowLeft, Waves, Thermometer, Clock, Timer, Cloud, Compass } from 'lucide-react';
+import { Wind, ArrowUp, ArrowLeft, Waves, Thermometer, Clock, Timer, Compass } from 'lucide-react';
 import Link from 'next/link';
 import Header from '@/components/header';
 import TideChart from '@/components/tide-chart';
@@ -88,11 +88,14 @@ export default function PointDetail() {
   const buildWaveData = useCallback((point: SurfPointDetail): WaveCardData[] => {
     if (!point.hourly) return [];
     const now = new Date();
-    const future = point.hourly.filter(h => h?.time && new Date(h.time) >= now);
-    const source = future.length >= 4 ? future : point.hourly;
+    // 次の正時を起点にする
+    const nextHourMs = Math.ceil(now.getTime() / (60 * 60 * 1000)) * (60 * 60 * 1000);
+    const future = point.hourly.filter(h => h?.time && new Date(h.time).getTime() >= nextHourMs);
+    const source = future.length >= 8 ? future : point.hourly;
+    // 3時間刻みで48時間先まで（最大16コマ）
     return source
       .filter((_, i) => i % 3 === 0)
-      .slice(0, 8)
+      .slice(0, 16)
       .map((h, i) => ({
         id: `${point.id}-h-${i}`,
         beach: point.beach,
@@ -219,8 +222,8 @@ export default function PointDetail() {
             <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-[#707072]">現在のコンディション</p>
           </div>
 
-          {/* Wave height hero */}
-          <div className="px-4 py-5 border-b border-[#E5E5E5]">
+          {/* Wave height hero + 統合グリッド */}
+          <div className="px-4 py-5">
             {/* Big number */}
             <div className="flex items-end justify-between mb-4">
               <div>
@@ -262,49 +265,27 @@ export default function PointDetail() {
               </div>
             </div>
 
-            {/* 2-col info grid */}
+            {/* 2-col info grid (統合: 波情報＋風・環境) */}
             <div className="grid grid-cols-2 gap-2">
               {[
                 { icon: <Timer size={12} />, label: '周期', value: `${target.period?.toFixed(1) ?? '—'} 秒` },
                 { icon: <Compass size={12} />, label: 'うねりの向き', value: convertWindDirection(target.waveDirectionStr) },
                 { icon: <Waves size={12} />, label: '沖合うねり', value: `${target.rawSwellHeight?.toFixed(1) ?? '—'} m` },
+                { icon: <Wind size={12} />, label: '風速', value: `${target.windSpeed?.toFixed(1) ?? '—'} m/s`, sub: convertWindDirection(target.windDirection) },
                 { icon: <Wind size={12} />, label: '風の状態', value: windLabel },
-              ].map(({ icon, label, value }) => (
+                { icon: <Thermometer size={12} />, label: '水温', value: `${target.temperature?.toFixed(1) ?? '—'}°C` },
+              ].map(({ icon, label, value, sub }) => (
                 <div key={label} className="bg-[#FAFAFA] rounded-lg px-3 py-2.5">
                   <div className="flex items-center gap-1.5 mb-1 text-[#9E9EA0]">
                     {icon}
                     <span className="text-[10px] font-medium uppercase tracking-wider">{label}</span>
                   </div>
-                  <p className="text-[13px] font-semibold text-[#0d1b2a]">{value}</p>
+                  <p className="text-[13px] font-semibold text-[#0d1b2a]">
+                    {value}{sub && <span className="text-[11px] font-normal text-[#9E9EA0] ml-1">{sub}</span>}
+                  </p>
                 </div>
               ))}
             </div>
-          </div>
-        </div>
-
-        {/* ── Wind & Environment ── */}
-        <div className="rounded-xl border border-[#E5E5E5] overflow-hidden mb-4">
-          <div className="px-4 py-3 bg-[#FAFAFA] border-b border-[#E5E5E5]">
-            <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-[#707072]">風・環境</p>
-          </div>
-          <div className="p-3 grid grid-cols-2 gap-2">
-            {[
-              { icon: <Wind size={12} />, label: '風速', value: `${target.windSpeed?.toFixed(1) ?? '—'} m/s`, sub: convertWindDirection(target.windDirection) },
-              { icon: <Wind size={12} />, label: '風の状態', value: windLabel },
-              { icon: <Compass size={12} />, label: '岸の向き', value: convertWindDirection(target.beachFacing || 'N') },
-              { icon: <Thermometer size={12} />, label: '水温', value: `${target.temperature?.toFixed(1) ?? '—'}°C` },
-              { icon: <Cloud size={12} />, label: '雲量', value: target.cloudCover != null ? `${target.cloudCover}%` : '—' },
-            ].map(({ icon, label, value, sub }) => (
-              <div key={label} className="bg-[#FAFAFA] rounded-lg px-3 py-2.5">
-                <div className="flex items-center gap-1.5 mb-1 text-[#9E9EA0]">
-                  {icon}
-                  <span className="text-[10px] font-medium uppercase tracking-wider">{label}</span>
-                </div>
-                <p className="text-[13px] font-semibold text-[#0d1b2a]">
-                  {value}{sub && <span className="text-[11px] font-normal text-[#9E9EA0] ml-1">{sub}</span>}
-                </p>
-              </div>
-            ))}
           </div>
         </div>
 
@@ -343,30 +324,6 @@ export default function PointDetail() {
           {waveData.length > 0 && <ForecastChart data={waveData} />}
         </div>
 
-        {/* ── Hourly list ── */}
-        <SectionTitle>時間別データ</SectionTitle>
-        <div className="rounded-xl border border-[#E5E5E5] overflow-hidden mb-8">
-          {waveData.map((wave, i) => {
-            const wcfg = qualityConfig[wave.quality] ?? qualityConfig['D'];
-            return (
-              <div key={wave.id} className={`flex items-center gap-3 px-4 py-3 ${i !== waveData.length - 1 ? 'border-b border-[#E5E5E5]' : ''}`}>
-                <span className="text-[12px] font-semibold text-[#707072] w-10 shrink-0">{wave.time}</span>
-                <span className={`shrink-0 w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold ${wcfg.badge} ${wcfg.badgeBg}`}>
-                  {wave.quality}
-                </span>
-                <span className="flex-1 text-[14px] font-semibold text-[#0d1b2a]">{wave.height}</span>
-                <div className="flex items-center gap-1 text-[#9E9EA0]">
-                  <Waves size={11} />
-                  <span className="text-[11px]">{wave.period.toFixed(0)}s</span>
-                </div>
-                <div className="flex items-center gap-1 text-[#9E9EA0]">
-                  <Wind size={11} />
-                  <span className="text-[11px]">{wave.windSpeed.toFixed(1)}</span>
-                </div>
-              </div>
-            );
-          })}
-        </div>
 
         {/* ── Weekly forecast ── */}
         <SectionTitle>週間予報</SectionTitle>

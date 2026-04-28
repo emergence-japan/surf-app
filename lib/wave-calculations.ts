@@ -1,3 +1,5 @@
+import type { BoardType, QualityLevel } from './types';
+
 // 16方位の定数
 export const DIRS = ['N', 'NNE', 'NE', 'ENE', 'E', 'ESE', 'SE', 'SSE', 'S', 'SSW', 'SW', 'WSW', 'W', 'WNW', 'NW', 'NNW'] as const;
 export type Dir = typeof DIRS[number];
@@ -55,10 +57,23 @@ export function calculateEffectiveHeight(
   return swellHeight * attenuation;
 }
 
-// 波高からベースのスコアとラベルを取得
-export function getWaveBaseScore(height: number | null | undefined) {
+// 波高からベースのスコアとラベルを取得（ボード種別でピークサイズが変わる）
+export function getWaveBaseScore(height: number | null | undefined, boardType: BoardType = 'short') {
   if (height === null || height === undefined) return { score: 1, label: '-', range: '-' };
 
+  if (boardType === 'long') {
+    // ロング: ベストゾーンは ヒザ〜腰 (0.5〜0.8m)、頭オーバーは厳しい
+    if (height < 0.2) return { score: 1, label: 'フラット', range: '0.0-0.2m' };
+    if (height < 0.5) return { score: 3, label: 'スネ〜ヒザ', range: '0.2-0.5m' };
+    if (height < 0.8) return { score: 5, label: 'ヒザ〜腰', range: '0.5-0.8m' };
+    if (height < 1.2) return { score: 5, label: '腰〜腹', range: '0.8-1.2m' };
+    if (height < 1.6) return { score: 4, label: '腹〜胸', range: '1.2-1.6m' };
+    if (height < 2.0) return { score: 3, label: '胸〜肩', range: '1.6-2.0m' };
+    if (height < 2.5) return { score: 2, label: '肩〜頭', range: '2.0-2.5m' };
+    return { score: 1, label: '頭オーバー', range: '2.5m+' };
+  }
+
+  // ショート: ベストゾーンは 腹〜胸 (1.2〜1.6m)
   if (height < 0.2) return { score: 1, label: 'フラット', range: '0.0-0.2m' };
   if (height < 0.5) return { score: 2, label: 'スネ〜ヒザ', range: '0.2-0.5m' };
   if (height < 0.8) return { score: 3, label: 'ヒザ〜腰', range: '0.5-0.8m' };
@@ -67,6 +82,28 @@ export function getWaveBaseScore(height: number | null | undefined) {
   if (height < 2.0) return { score: 4, label: '胸〜肩', range: '1.6-2.0m' };
   if (height < 2.5) return { score: 3, label: '肩〜頭', range: '2.0-2.5m' };
   return { score: 2, label: '頭オーバー', range: '2.5m+' };
+}
+
+// ボード種別ごとのグレード上限
+function getHeightCap(height: number, boardType: BoardType): QualityLevel {
+  if (boardType === 'long') {
+    if (height < 0.3) return 'C';
+    if (height < 0.5) return 'B';
+    if (height < 0.8) return 'A';
+    return 'S';
+  }
+  // short
+  if (height < 0.3) return 'C';
+  if (height < 0.5) return 'C';
+  if (height < 0.8) return 'B';
+  if (height < 1.0) return 'A';
+  return 'S';
+}
+
+const QUALITY_RANK: Record<QualityLevel, number> = { S: 5, A: 4, B: 3, C: 2, D: 1 };
+
+function applyCap(grade: QualityLevel, cap: QualityLevel): QualityLevel {
+  return QUALITY_RANK[grade] > QUALITY_RANK[cap] ? cap : grade;
 }
 
 // 風の影響を判定
@@ -111,30 +148,35 @@ export function calculateQuality(
   effectiveHeight: number,
   period: number,
   isSwellDominant?: boolean,  // スウェル成分が風波より支配的か
-  tideScoreEffect?: number    // 潮汐フェーズによる補正スコア
-): 'S' | 'A' | 'B' | 'C' | 'D' {
+  tideScoreEffect?: number,   // 潮汐フェーズによる補正スコア
+  boardType: BoardType = 'short'
+): QualityLevel {
   // フラットは方向・風に関わらず問答無用でD
   if (effectiveHeight < 0.2) return 'D';
 
   let finalScore = baseScore + windEffect;
 
-  // 周期ペナルティ: 6秒以下の風波はパワーが弱くグレードを下げる
-  if (period > 0 && period <= 6) finalScore -= 1;
+  // 波の質ペナルティ: ボード種別で短周期の閾値が異なる
+  // ロングは弱い波でも乗れるので閾値が緩い
+  const shortPeriodThreshold = boardType === 'long' ? 5 : 6;
+  const isShortPeriod = period > 0 && period <= shortPeriodThreshold;
+  if (isShortPeriod || isSwellDominant === false) finalScore -= 1;
 
-  // 風波ドミナントペナルティ: スウェル成分が分離できており、かつ風波が支配的な場合
-  if (isSwellDominant === false) finalScore -= 1;
+  // 潮汐フェーズ補正（プラス・マイナスとも反映）
+  if (tideScoreEffect !== undefined) finalScore += tideScoreEffect;
 
-  // 潮汐フェーズ補正
-  if (tideScoreEffect !== undefined && tideScoreEffect > 0) finalScore += tideScoreEffect;
+  // BESTボーナス
+  if (isBestSwell && baseScore >= 2) finalScore += 1;
 
-  // BESTボーナス: 本物のうねり(8秒以上)かつ波がある場合のみ
-  if (isBestSwell && period >= 8 && baseScore >= 2) finalScore += 1;
+  let grade: QualityLevel;
+  if (finalScore >= 5) grade = 'S';
+  else if (finalScore >= 4) grade = 'A';
+  else if (finalScore >= 3) grade = 'B';
+  else if (finalScore >= 2) grade = 'C';
+  else grade = 'D';
 
-  if (finalScore >= 5) return 'S';
-  if (finalScore >= 4) return 'A';
-  if (finalScore >= 3) return 'B';
-  if (finalScore >= 2) return 'C';
-  return 'D';
+  // 波サイズによる上限キャップ（ボード種別で変動）
+  return applyCap(grade, getHeightCap(effectiveHeight, boardType));
 }
 
 /**

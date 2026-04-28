@@ -2,6 +2,8 @@
 
 export type QualityLevel = 'S' | 'A' | 'B' | 'C' | 'D';
 
+export type BoardType = 'short' | 'long';
+
 // Basic surf point summary (used in list view)
 export interface SurfPointSummary {
     id: string;

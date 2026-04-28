@@ -4,6 +4,7 @@ import { Geist, Geist_Mono } from 'next/font/google'
 import { Analytics } from '@vercel/analytics/next'
 import './globals.css'
 import { ForecastProvider } from '@/context/forecast-context'
+import { BoardTypeProvider } from '@/context/board-type-context'
 
 const _geist = Geist({ subsets: ["latin"] });
 const _geistMono = Geist_Mono({ subsets: ["latin"] });
@@ -39,9 +40,11 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className={`font-sans antialiased`}>
-        <ForecastProvider>
-          {children}
-        </ForecastProvider>
+        <BoardTypeProvider>
+          <ForecastProvider>
+            {children}
+          </ForecastProvider>
+        </BoardTypeProvider>
         <Analytics />
       </body>
     </html>

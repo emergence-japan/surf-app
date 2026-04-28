@@ -1,7 +1,9 @@
 'use client';
 
-import React, { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, useMemo, ReactNode } from 'react';
 import { SurfPointDetail } from '@/lib/types';
+import { applyBoardType } from '@/lib/board-recompute';
+import { useBoardType } from './board-type-context';
 
 interface ForecastContextType {
     allBeachesData: SurfPointDetail[];
@@ -48,11 +50,17 @@ function writeCache(data: SurfPointDetail[]): void {
 }
 
 export function ForecastProvider({ children }: { children: ReactNode }) {
-    const [allBeachesData, setAllBeachesData] = useState<SurfPointDetail[]>([]);
+    const [rawData, setRawData] = useState<SurfPointDetail[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [isError, setIsError] = useState(false);
     const [errorMessage, setErrorMessage] = useState<string | null>(null);
     const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
+    const { boardType } = useBoardType();
+
+    const allBeachesData = useMemo(
+        () => rawData.map(p => applyBoardType(p, boardType)),
+        [rawData, boardType]
+    );
 
     const fetchData = useCallback(async () => {
         setIsLoading(true);
@@ -68,7 +76,7 @@ export function ForecastProvider({ children }: { children: ReactNode }) {
             if (!Array.isArray(data)) {
                 throw new Error('予期しないレスポンス形式');
             }
-            setAllBeachesData(data);
+            setRawData(data);
             setLastUpdated(new Date());
             writeCache(data);
         } catch (error) {
@@ -78,7 +86,7 @@ export function ForecastProvider({ children }: { children: ReactNode }) {
                     ? error.message
                     : '波情報の取得に失敗しました'
             );
-            setAllBeachesData([]);
+            setRawData([]);
         } finally {
             setIsLoading(false);
         }
@@ -87,7 +95,7 @@ export function ForecastProvider({ children }: { children: ReactNode }) {
     useEffect(() => {
         const cached = readCache();
         if (cached) {
-            setAllBeachesData(cached);
+            setRawData(cached);
             setIsLoading(false);
             setLastUpdated(new Date());
             return;
