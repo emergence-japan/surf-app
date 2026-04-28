@@ -1,135 +1,153 @@
+@import url('https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@700;800&family=Inter:wght@400;500;600&display=swap');
 @import 'tailwindcss';
 @import 'tw-animate-css';
 
 @custom-variant dark (&:is(.dark *));
 
 :root {
-  /* Ocean Premium Palette - Refined for High-End Look */
-  --background: oklch(0.99 0.01 220);
-  --foreground: oklch(0.12 0.04 235);
-  
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.12 0.04 235);
-  
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.12 0.04 235);
-  
-  --primary: oklch(0.45 0.2 245);
-  --primary-foreground: oklch(1 0 0);
-  
-  --secondary: oklch(0.94 0.02 225);
-  --secondary-foreground: oklch(0.2 0.05 235);
-  
-  --muted: oklch(0.96 0.01 225);
-  --muted-foreground: oklch(0.45 0.04 235);
-  
-  --accent: oklch(0.55 0.18 210);
-  --accent-foreground: oklch(1 0 0);
-  
-  --destructive: oklch(0.55 0.22 25);
-  --destructive-foreground: oklch(1 0 0);
-  
-  --border: oklch(0.88 0.02 225);
-  --input: oklch(0.92 0.02 225);
-  --ring: oklch(0.45 0.2 245);
-  
-  --chart-1: oklch(0.55 0.18 240);
-  --chart-2: oklch(0.65 0.15 200);
-  --chart-3: oklch(0.75 0.12 180);
-  --chart-4: oklch(0.45 0.2 260);
-  --chart-5: oklch(0.85 0.1 210);
-  
-  --radius: 1.5rem;
-}
+  /* Wave Forecast — Nike × Surf palette */
+  --ocean-ink:    #0d1b2a;
+  --white:        #ffffff;
+  --snow:         #fafafa;
+  --gray-100:     #f5f5f5;
+  --gray-200:     #e5e5e5;
+  --gray-300:     #cacacb;
+  --gray-500:     #707072;
+  --gray-600:     #4b4b4d;
+  --cyan-500:     #06b6d4;
+  --cyan-600:     #0891b2;
+  --cyan-100:     #cffafe;
+  --cyan-text:    #164e63;
 
-.dark {
-  --background: oklch(0.12 0.03 235);
-  --foreground: oklch(0.95 0.02 220);
-  --card: oklch(0.16 0.03 235);
-  --card-foreground: oklch(0.95 0.02 220);
-  --popover: oklch(0.16 0.03 235);
-  --popover-foreground: oklch(0.95 0.02 220);
-  --primary: oklch(0.65 0.18 240);
-  --primary-foreground: oklch(0.1 0.05 235);
-  --secondary: oklch(0.2 0.04 235);
-  --secondary-foreground: oklch(0.95 0.02 220);
-  --muted: oklch(0.22 0.04 235);
-  --muted-foreground: oklch(0.7 0.03 220);
-  --accent: oklch(0.55 0.15 200);
-  --accent-foreground: oklch(0.95 0.02 220);
-  --destructive: oklch(0.45 0.15 25);
-  --destructive-foreground: oklch(0.95 0.02 220);
-  --border: oklch(0.25 0.04 235);
-  --input: oklch(0.25 0.04 235);
-  --ring: oklch(0.65 0.18 240);
+  --background:        var(--white);
+  --foreground:        var(--ocean-ink);
+  --card:              var(--white);
+  --card-foreground:   var(--ocean-ink);
+  --primary:           var(--cyan-500);
+  --primary-foreground: var(--white);
+  --secondary:         var(--gray-100);
+  --secondary-foreground: var(--ocean-ink);
+  --muted:             var(--gray-100);
+  --muted-foreground:  var(--gray-500);
+  --accent:            var(--cyan-500);
+  --accent-foreground: var(--white);
+  --destructive:       #d30005;
+  --border:            var(--gray-300);
+  --input:             var(--gray-100);
+  --ring:              rgba(6,182,212,0.4);
+  --radius:            0.75rem;
 }
 
 @theme inline {
-  --font-sans: 'Inter', 'Geist', sans-serif;
-  --font-mono: 'Geist Mono', monospace;
-  
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --color-card: var(--card);
-  --color-card-foreground: var(--card-foreground);
-  --color-popover: var(--popover);
-  --color-popover-foreground: var(--popover-foreground);
-  --color-primary: var(--primary);
-  --color-primary-foreground: var(--primary-foreground);
-  --color-secondary: var(--secondary);
+  --font-display: 'Barlow Condensed', Helvetica, Arial, sans-serif;
+  --font-sans:    'Inter', -apple-system, Helvetica, Arial, sans-serif;
+  --font-mono:    'Geist Mono', monospace;
+
+  --color-background:        var(--background);
+  --color-foreground:        var(--foreground);
+  --color-card:              var(--card);
+  --color-card-foreground:   var(--card-foreground);
+  --color-primary:           var(--primary);
+  --color-primary-foreground:var(--primary-foreground);
+  --color-secondary:         var(--secondary);
   --color-secondary-foreground: var(--secondary-foreground);
-  --color-muted: var(--muted);
-  --color-muted-foreground: var(--muted-foreground);
-  --color-accent: var(--accent);
+  --color-muted:             var(--muted);
+  --color-muted-foreground:  var(--muted-foreground);
+  --color-accent:            var(--accent);
   --color-accent-foreground: var(--accent-foreground);
-  --color-destructive: var(--destructive);
-  --color-destructive-foreground: var(--destructive-foreground);
-  --color-border: var(--border);
-  --color-input: var(--input);
-  --color-ring: var(--ring);
-  --color-chart-1: var(--chart-1);
-  --color-chart-2: var(--chart-2);
-  --color-chart-3: var(--chart-3);
-  --color-chart-4: var(--chart-4);
-  --color-chart-5: var(--chart-5);
-  --radius-sm: calc(var(--radius) - 4px);
-  --radius-md: calc(var(--radius) - 2px);
-  --radius-lg: var(--radius);
-  --radius-xl: calc(var(--radius) + 4px);
+  --color-destructive:       var(--destructive);
+  --color-border:            var(--border);
+  --color-input:             var(--input);
+  --color-ring:              var(--ring);
+  --radius-sm:  calc(var(--radius) - 4px);
+  --radius-md:  calc(var(--radius) - 2px);
+  --radius-lg:  var(--radius);
+  --radius-xl:  calc(var(--radius) + 4px);
 }
 
 @layer base {
   * {
     @apply border-border outline-ring/50;
+    box-sizing: border-box;
   }
   body {
-    @apply bg-background text-foreground transition-colors duration-700 antialiased;
-    background-color: #f8fafc;
-    background-image: 
-      url("data:image/svg+xml,%3Csvg width='100' height='20' viewBox='0 0 100 20' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M21.184 20c.357-.13.72-.264 1.088-.402l1.768-.661C33.64 15.347 39.647 13 50 13s16.36 2.347 25.96 5.937l1.768.662c.368.138.73.272 1.088.401H100V0H0v20h21.184z' fill='%233b82f6' fill-opacity='0.03' fill-rule='evenodd'/%3E%3C/svg%3E"),
-      radial-gradient(at 0% 0%, oklch(0.85 0.12 220 / 0.4) 0px, transparent 50%),
-      radial-gradient(at 100% 0%, oklch(0.7 0.15 200 / 0.2) 0px, transparent 50%),
-      radial-gradient(at 50% 100%, oklch(0.55 0.2 240 / 0.1) 0px, transparent 50%);
-    background-attachment: fixed;
+    font-family: var(--font-sans);
+    background-color: var(--white);
+    color: var(--ocean-ink);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
   }
 }
 
 @layer components {
-  .ocean-wave-pattern {
-    opacity: 0.05;
-    background-image: url("data:image/svg+xml,%3Csvg width='100' height='20' viewBox='0 0 100 20' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M21.184 20c.357-.13.72-.264 1.088-.402l1.768-.661C33.64 15.347 39.647 13 50 13s16.36 2.347 25.96 5.937l1.768.662c.368.138.73.272 1.088.401H100V0H0v20h21.184z' fill='%230ea5e9' fill-rule='evenodd'/%3E%3C/svg%3E");
-    background-size: 400px 80px;
+  /* Display headline — Barlow Condensed, Nike-style */
+  .display-heading {
+    font-family: var(--font-display);
+    font-weight: 700;
+    line-height: 0.90;
+    text-transform: uppercase;
+    letter-spacing: -0.01em;
   }
 
-  .glass-card {
-    @apply bg-white/40 backdrop-blur-2xl border border-white/60 shadow-[0_8px_32px_0_rgba(31,38,135,0.07)];
-    box-shadow:
-      inset 0 0 0 1px rgba(255, 255, 255, 0.5),
-      0 20px 40px -15px rgba(0, 0, 0, 0.05);
+  /* Flat pill button — cyan primary */
+  .btn-primary {
+    background: var(--cyan-500);
+    color: var(--white);
+    border-radius: 30px;
+    padding: 12px 28px;
+    font-family: var(--font-sans);
+    font-size: 14px;
+    font-weight: 500;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    border: none;
+    cursor: pointer;
+    transition: background 200ms ease;
   }
-}
+  .btn-primary:hover { background: var(--cyan-600); }
 
-@keyframes waveScroll {
-  from { transform: translateX(0); }
-  to   { transform: translateX(-30px); }
+  /* Dark pill button */
+  .btn-dark {
+    background: var(--ocean-ink);
+    color: var(--white);
+    border-radius: 30px;
+    padding: 12px 28px;
+    font-size: 14px;
+    font-weight: 500;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    border: none;
+    cursor: pointer;
+    transition: background 200ms ease;
+  }
+  .btn-dark:hover { background: var(--gray-500); }
+
+  /* Flat spot card — border only, no shadow */
+  .spot-card {
+    background: var(--white);
+    border: 1px solid var(--gray-300);
+    border-radius: 12px;
+    overflow: hidden;
+    transition: border-color 200ms ease;
+    cursor: pointer;
+  }
+  .spot-card:hover { border-color: var(--gray-500); }
+
+  /* Search pill input */
+  .search-input {
+    background: var(--gray-100);
+    border: 1px solid transparent;
+    border-radius: 30px;
+    padding: 12px 16px 12px 48px;
+    font-size: 16px;
+    font-family: var(--font-sans);
+    width: 100%;
+    outline: none;
+    transition: border-color 200ms ease, box-shadow 200ms ease;
+  }
+  .search-input:focus {
+    border-color: var(--cyan-500);
+    box-shadow: 0 0 0 3px rgba(6,182,212,0.15);
+  }
+  .search-input::placeholder { color: var(--gray-500); }
 }

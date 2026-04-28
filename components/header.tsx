@@ -1,86 +1,82 @@
 'use client';
 
-import { Waves, Menu, Search, User } from 'lucide-react';
 import { useState, useEffect } from 'react';
+import { Menu, X } from 'lucide-react';
 import Link from 'next/link';
+
+function SwellLogo() {
+  return (
+    <svg width="36" height="36" viewBox="0 0 36 36" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <rect width="36" height="36" rx="10" fill="#0d1b2a" />
+      <path
+        d="M4 22 Q8 16 12 22 Q16 28 20 22 Q24 16 28 22 Q30 25 32 22"
+        stroke="#06b6d4" strokeWidth="2.2" strokeLinecap="round" fill="none"
+      />
+      <path
+        d="M4 17 Q8 11 12 17 Q16 23 20 17 Q24 11 28 17 Q30 20 32 17"
+        stroke="white" strokeWidth="1.4" strokeLinecap="round" fill="none" opacity="0.35"
+      />
+    </svg>
+  );
+}
 
 export default function Header() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
 
   useEffect(() => {
-    const handleScroll = () => {
-      setScrolled(window.scrollY > 20);
-    };
+    const handleScroll = () => setScrolled(window.scrollY > 20);
     window.addEventListener('scroll', handleScroll);
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
   return (
     <header className={`sticky top-0 z-50 transition-all duration-300 ${
-      scrolled 
-        ? "bg-white/80 backdrop-blur-md border-b border-blue-100 py-3 shadow-sm" 
-        : "bg-transparent py-5"
+      scrolled ? 'bg-white/90 backdrop-blur-md border-b border-[#E5E5E5]' : 'bg-white'
     }`}>
-      <div className="container mx-auto px-6">
-        <div className="flex items-center justify-between">
+      <div className="max-w-2xl mx-auto px-4 md:px-6">
+        <div className="flex items-center justify-between h-14">
           {/* Logo */}
-          <Link href="/" className="group flex items-center gap-3">
-            <div className="relative w-11 h-11 rounded-2xl bg-gradient-to-br from-blue-500 to-cyan-400 flex items-center justify-center shadow-lg shadow-blue-500/20 group-hover:scale-105 transition-transform">
-              <Waves size={24} className="text-white" />
-              <div className="absolute -inset-1 bg-blue-400/20 rounded-2xl blur-sm opacity-0 group-hover:opacity-100 transition-opacity" />
-            </div>
+          <Link href="/" className="flex items-center gap-2.5">
+            <SwellLogo />
             <div>
-              <h1 className="text-2xl font-light text-foreground tracking-tighter leading-none">
-                SWELL<span className="font-bold text-blue-500">.</span>
-              </h1>
-              <p className="text-[10px] uppercase tracking-[0.2em] text-muted-foreground font-medium">波予測プレミアム</p>
+              <p
+                className="text-[#0d1b2a] leading-none"
+                style={{ fontFamily: "'Barlow Condensed', Helvetica, Arial, sans-serif", fontWeight: 700, fontSize: 20, letterSpacing: '-0.01em' }}
+              >
+                SWELL<span className="text-[#06b6d4]">.</span>
+              </p>
+              <p className="text-[9px] font-semibold uppercase tracking-[0.2em] text-[#9E9EA0] mt-0.5">波予測プレミアム</p>
             </div>
           </Link>
 
-          {/* Desktop Navigation */}
-          <nav className="hidden md:flex items-center gap-8">
-            <Link href="/" className="text-sm font-medium text-foreground/80 hover:text-blue-500 transition-colors">スポット検索</Link>
-            <Link href="#" className="text-sm font-medium text-foreground/80 hover:text-blue-500 transition-colors">うねりマップ</Link>
-            <Link href="#" className="text-sm font-medium text-foreground/80 hover:text-blue-500 transition-colors">アラート設定</Link>
-            <div className="h-4 w-px bg-border mx-2" />
-            <div className="flex items-center gap-4">
-              <button className="p-2 text-muted-foreground hover:text-blue-500 transition-colors">
-                <Search size={20} />
-              </button>
-              <button className="flex items-center gap-2 bg-blue-500 text-white px-4 py-2 rounded-full text-sm font-medium hover:bg-blue-600 transition-all shadow-md shadow-blue-500/20">
-                <User size={16} />
-                <span>ログイン</span>
-              </button>
-            </div>
-          </nav>
-
-          {/* Mobile Menu Button */}
+          {/* Mobile menu toggle */}
           <button
-            onClick={() => setIsMenuOpen(!isMenuOpen)}
-            className="md:hidden p-2.5 rounded-xl bg-secondary/50 hover:bg-secondary transition-colors"
+            onClick={() => setIsMenuOpen(v => !v)}
+            className="w-9 h-9 rounded-lg flex items-center justify-center text-[#707072] hover:bg-[#F5F5F5] transition-colors"
             aria-label="Toggle menu"
           >
-            <Menu size={24} className="text-foreground" />
+            {isMenuOpen ? <X size={20} /> : <Menu size={20} />}
           </button>
         </div>
 
-        {/* Mobile Menu */}
-        <div className={`md:hidden overflow-hidden transition-all duration-300 ${
-          isMenuOpen ? "max-h-64 mt-6 opacity-100" : "max-h-0 opacity-0"
-        }`}>
-          <nav className="bg-white/50 backdrop-blur-lg rounded-2xl border border-blue-50/50 p-4 space-y-1">
-            <Link href="/" className="block text-sm font-medium text-foreground hover:bg-blue-50 hover:text-blue-500 rounded-lg px-4 py-3 transition-all">
-              スポット検索
+        {/* Mobile dropdown */}
+        {isMenuOpen && (
+          <div className="border-t border-[#E5E5E5] py-3 flex flex-col gap-1">
+            <Link href="/" onClick={() => setIsMenuOpen(false)}
+              className="text-[13px] font-medium text-[#0d1b2a] hover:text-[#06b6d4] px-2 py-2 rounded-lg hover:bg-[#F5F5F5] transition-colors">
+              スポット一覧
             </Link>
-            <Link href="#" className="block text-sm font-medium text-foreground hover:bg-blue-50 hover:text-blue-500 rounded-lg px-4 py-3 transition-all">
+            <Link href="#" onClick={() => setIsMenuOpen(false)}
+              className="text-[13px] font-medium text-[#707072] hover:text-[#06b6d4] px-2 py-2 rounded-lg hover:bg-[#F5F5F5] transition-colors">
               うねりマップ
             </Link>
-            <Link href="#" className="block text-sm font-medium text-foreground hover:bg-blue-50 hover:text-blue-500 rounded-lg px-4 py-3 transition-all">
+            <Link href="#" onClick={() => setIsMenuOpen(false)}
+              className="text-[13px] font-medium text-[#707072] hover:text-[#06b6d4] px-2 py-2 rounded-lg hover:bg-[#F5F5F5] transition-colors">
               アラート設定
             </Link>
-          </nav>
-        </div>
+          </div>
+        )}
       </div>
     </header>
   );

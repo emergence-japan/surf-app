@@ -1,356 +1,378 @@
 'use client';
 
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useMemo, useCallback, useState, useEffect } from 'react';
 import { useParams } from 'next/navigation';
-import { Cloud, Wind, Droplets, MapPin, ArrowUp, Thermometer, ArrowLeft, Waves, Clock, Info, ShieldCheck } from 'lucide-react';
+import { Wind, ArrowUp, ArrowLeft, Waves, Thermometer, Clock, Timer, Cloud, Compass } from 'lucide-react';
+import Link from 'next/link';
 import Header from '@/components/header';
-import WaveCard from '@/components/wave-card';
-import ForecastChart from '@/components/forecast-chart';
 import TideChart from '@/components/tide-chart';
+import ForecastChart from '@/components/forecast-chart';
 import WeeklyForecast from '@/components/weekly-forecast';
 import { convertWindDirection } from '@/lib/converters';
-import Link from 'next/link';
 import { useForecast } from '@/context/forecast-context';
-import { SurfPointDetail, QualityLevel } from '@/lib/types';
+import type { SurfPointDetail, QualityLevel } from '@/lib/types';
 
-interface WaveCardData {
-    id: string;
-    beach: string;
-    height: string;
-    heightValue: number;
-    period: number;
-    windSpeed: number;
-    windDirection: string;
-    quality: QualityLevel;
-    time: string;
-    temperature: number;
-}
-
-const TIDE_CHART_HOURS = 24;
-
-const dirToDeg: Record<string, number> = {
-    N: 0, NNE: 22.5, NE: 45, ENE: 67.5,
-    E: 90, ESE: 112.5, SE: 135, SSE: 157.5,
-    S: 180, SSW: 202.5, SW: 225, WSW: 247.5,
-    W: 270, WNW: 292.5, NW: 315, NNW: 337.5
+const qualityConfig: Record<string, { label: string; badge: string; badgeBg: string; barFrom: string; barTo: string }> = {
+  S: { label: 'EPIC',  badge: 'text-amber-600',  badgeBg: 'bg-amber-50 border border-amber-200',  barFrom: 'from-amber-400', barTo: 'to-orange-500' },
+  A: { label: 'GREAT', badge: 'text-cyan-700',   badgeBg: 'bg-cyan-50 border border-cyan-200',    barFrom: 'from-cyan-500',  barTo: 'to-sky-400' },
+  B: { label: 'GOOD',  badge: 'text-emerald-700', badgeBg: 'bg-emerald-50 border border-emerald-200', barFrom: 'from-emerald-500', barTo: 'to-teal-400' },
+  C: { label: 'FAIR',  badge: 'text-slate-600',  badgeBg: 'bg-slate-100 border border-slate-200', barFrom: 'from-slate-400', barTo: 'to-slate-500' },
+  D: { label: 'POOR',  badge: 'text-slate-500',  badgeBg: 'bg-slate-50 border border-slate-200',  barFrom: 'from-slate-300', barTo: 'to-slate-400' },
 };
 
+const dirToDeg: Record<string, number> = {
+  N:0,NNE:22.5,NE:45,ENE:67.5,E:90,ESE:112.5,SE:135,SSE:157.5,
+  S:180,SSW:202.5,SW:225,WSW:247.5,W:270,WNW:292.5,NW:315,NNW:337.5
+};
+
+function StatRow({ icon, label, value, sub }: { icon: React.ReactNode; label: string; value: string; sub?: string }) {
+  return (
+    <div className="flex items-center justify-between py-3 border-b border-[#E5E5E5] last:border-0">
+      <div className="flex items-center gap-2">
+        <span className="text-[#9E9EA0]">{icon}</span>
+        <span className="text-[12px] font-medium text-[#707072] uppercase tracking-[0.1em]">{label}</span>
+      </div>
+      <div className="text-right">
+        <span className="text-[14px] font-semibold text-[#0d1b2a]">{value}</span>
+        {sub && <span className="text-[12px] text-[#9E9EA0] ml-1.5">{sub}</span>}
+      </div>
+    </div>
+  );
+}
+
+function SectionTitle({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="flex items-center gap-3 mb-4">
+      <p className="text-[11px] font-bold uppercase tracking-[0.25em] text-[#707072]">{children}</p>
+      <div className="flex-1 h-px bg-[#E5E5E5]" />
+    </div>
+  );
+}
+
+function CompassCard({ label, dir, deg, color }: { label: string; dir: string; deg: number; color: string }) {
+  return (
+    <div className="rounded-xl border border-[#E5E5E5] p-4 flex items-center justify-between">
+      <div>
+        <p className="text-[11px] text-[#9E9EA0] font-medium mb-1 whitespace-nowrap">{label}</p>
+        <p className="text-[15px] font-semibold text-[#0d1b2a]">{convertWindDirection(dir)}</p>
+      </div>
+      {/* Compass circle with SVG grid lines */}
+      <div className="relative w-11 h-11">
+        <svg viewBox="0 0 44 44" className="absolute inset-0 w-full h-full">
+          <circle cx="22" cy="22" r="20" fill="#F5F5F5" stroke="#E5E5E5" strokeWidth="1" />
+          <line x1="22" y1="4" x2="22" y2="40" stroke="#E5E5E5" strokeWidth="0.8" />
+          <line x1="4" y1="22" x2="40" y2="22" stroke="#E5E5E5" strokeWidth="0.8" />
+          <circle cx="22" cy="22" r="1.5" fill="#CACACB" />
+        </svg>
+        <div className="absolute inset-0 flex items-center justify-center">
+          <ArrowUp size={16} className={color} style={{ transform: `rotate(${deg}deg)` }} />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+interface WaveCardData {
+  id: string; beach: string; height: string; heightValue: number;
+  period: number; windSpeed: number; windDirection: string;
+  quality: QualityLevel; time: string; temperature: number;
+}
+
 export default function PointDetail() {
-    const params = useParams();
-    const id = params?.id as string;
-    const { allBeachesData, isLoading: isContextLoading, lastUpdated } = useForecast();
+  const params = useParams();
+  const id = params?.id as string;
+  const { allBeachesData, isLoading, lastUpdated } = useForecast();
+  const [target, setTarget] = useState<SurfPointDetail | null>(null);
+  const [waveData, setWaveData] = useState<WaveCardData[]>([]);
 
-    const [target, setTarget] = useState<SurfPointDetail | null>(null);
-    const [waveData, setWaveData] = useState<WaveCardData[]>([]);
-    const [expandedCard, setExpandedCard] = useState<string | null>(null);
+  const buildWaveData = useCallback((point: SurfPointDetail): WaveCardData[] => {
+    if (!point.hourly) return [];
+    const now = new Date();
+    const future = point.hourly.filter(h => h?.time && new Date(h.time) >= now);
+    const source = future.length >= 4 ? future : point.hourly;
+    return source
+      .filter((_, i) => i % 3 === 0)
+      .slice(0, 8)
+      .map((h, i) => ({
+        id: `${point.id}-h-${i}`,
+        beach: point.beach,
+        height: h.waveLabel || '-',
+        heightValue: h.waveHeight || 0,
+        period: h.period || 0,
+        windSpeed: h.windSpeed || 0,
+        windDirection: h.windDir || '-',
+        quality: h.quality || 'C',
+        time: h.time ? new Date(h.time).toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' }) : '--:--',
+        temperature: point.temperature ?? 0,
+      }));
+  }, []);
 
-    const buildWaveData = useCallback((point: SurfPointDetail): WaveCardData[] => {
-        if (!point.hourly) return [];
-        const now = new Date();
-        return point.hourly
-            .filter((h) => h && h.time && new Date(h.time) >= now)
-            .filter((_, i) => i % 3 === 0)
-            .slice(0, 4)
-            .map((h, i) => ({
-                id: `${point.id}-h-${i}`,
-                beach: point.beach,
-                height: h.waveLabel || '-',
-                heightValue: h.waveHeight || 0,
-                period: h.period || 0,
-                windSpeed: h.windSpeed || 0,
-                windDirection: h.windDir || '-',
-                quality: h.quality || 'C',
-                time: h.time ? new Date(h.time).toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' }) : '--:--',
-                temperature: point.temperature ?? 0,
-            }));
-    }, []);
-
-    useEffect(() => {
-        if (!isContextLoading && allBeachesData.length > 0) {
-            const foundNode = allBeachesData.find(d => d.id === id);
-            if (foundNode) {
-                setTarget(foundNode);
-                setWaveData(buildWaveData(foundNode));
-            }
-        }
-    }, [id, allBeachesData, isContextLoading, buildWaveData]);
-
-    // 最終更新からの経過時間を表示用文字列に変換
-    const lastUpdatedLabel = useMemo(() => {
-        if (!lastUpdated) return '-';
-        const diffMs = Date.now() - lastUpdated.getTime();
-        const diffMin = Math.floor(diffMs / 60000);
-        if (diffMin < 1) return 'たった今';
-        if (diffMin < 60) return `${diffMin}分前`;
-        return `${Math.floor(diffMin / 60)}時間前`;
-    }, [lastUpdated]);
-
-    // 風状態ラベルを実データから計算
-    const windLabel = useMemo(() => {
-        if (!target) return '';
-        const DIRS = ['N', 'NNE', 'NE', 'ENE', 'E', 'ESE', 'SE', 'SSE', 'S', 'SSW', 'SW', 'WSW', 'W', 'WNW', 'NW', 'NNW'];
-        const beachIdx = DIRS.indexOf(target.beachFacing);
-        const windIdx = DIRS.indexOf(target.windDirection);
-        if (beachIdx === -1 || windIdx === -1) return '風データなし';
-        let diff = Math.abs(beachIdx - windIdx);
-        if (diff > 8) diff = 16 - diff;
-        const speed = target.windSpeed ?? 0;
-        if (diff >= 6) return speed > 5 ? '強いオフショア' : '弱いオフショア';
-        if (diff <= 2) return speed > 4 ? '強いオンショア' : '弱いオンショア';
-        return 'サイドウィンド';
-    }, [target]);
-
-    if (isContextLoading) {
-        return (
-            <div className="min-h-screen bg-background flex flex-col items-center justify-center">
-                <div className="w-16 h-16 rounded-full border-4 border-blue-100 border-t-blue-500 animate-spin mb-4" />
-                <p className="text-muted-foreground font-light tracking-widest uppercase text-xs">データ取得中...</p>
-            </div>
-        )
+  useEffect(() => {
+    if (!isLoading && allBeachesData.length > 0) {
+      const found = allBeachesData.find(d => d.id === id);
+      if (found) { setTarget(found); setWaveData(buildWaveData(found)); }
     }
+  }, [id, allBeachesData, isLoading, buildWaveData]);
 
-    if (!target) {
-        return (
-            <div className="min-h-screen bg-background">
-                <Header />
-                <div className="container mx-auto text-center py-20 px-6">
-                    <h2 className="text-3xl font-light mb-4">スポットが見つかりません</h2>
-                    <p className="text-muted-foreground mb-8">お探しのサーフスポットはデータベースに登録されていないか、移動された可能性があります。</p>
-                    <Link href="/" className="inline-flex items-center gap-2 bg-blue-500 text-white px-6 py-3 rounded-full font-medium hover:bg-blue-600 transition-all shadow-lg shadow-blue-500/20">
-                        <ArrowLeft size={18} />
-                        一覧に戻る
-                    </Link>
-                </div>
-            </div>
-        )
-    }
+  const lastUpdatedLabel = useMemo(() => {
+    if (!lastUpdated) return '-';
+    const diffMin = Math.floor((Date.now() - lastUpdated.getTime()) / 60000);
+    if (diffMin < 1) return 'たった今';
+    if (diffMin < 60) return `${diffMin}分前`;
+    return `${Math.floor(diffMin / 60)}時間前`;
+  }, [lastUpdated]);
 
+  const windLabel = useMemo(() => {
+    if (!target) return '';
+    const DIRS = ['N','NNE','NE','ENE','E','ESE','SE','SSE','S','SSW','SW','WSW','W','WNW','NW','NNW'];
+    const bi = DIRS.indexOf(target.beachFacing), wi = DIRS.indexOf(target.windDirection);
+    if (bi === -1 || wi === -1) return '—';
+    let diff = Math.abs(bi - wi); if (diff > 8) diff = 16 - diff;
+    const spd = target.windSpeed ?? 0;
+    if (diff >= 6) return spd > 5 ? '強いオフショア' : 'オフショア';
+    if (diff <= 2) return spd > 4 ? '強いオンショア' : 'オンショア';
+    return 'サイドウィンド';
+  }, [target]);
+
+  if (isLoading) {
     return (
-        <main className="min-h-screen relative overflow-hidden pb-20">
-            {/* Decorative background elements */}
-            <div className="absolute top-0 right-0 -z-10 w-[1000px] h-[1000px] bg-blue-400/5 blur-[150px] rounded-full" />
-            <div className="absolute bottom-0 left-0 -z-10 w-[800px] h-[800px] bg-cyan-400/5 blur-[120px] rounded-full" />
-
-            <Header />
-
-            <div className="container mx-auto px-6 py-8">
-                {/* Back Button */}
-                <div className="mb-10">
-                    <Link href="/" className="group inline-flex items-center text-sm font-semibold text-muted-foreground hover:text-blue-500 transition-colors">
-                        <ArrowLeft size={18} className="mr-2 group-hover:-translate-x-1 transition-transform" />
-                        一覧に戻る
-                    </Link>
-                </div>
-
-                {/* Hero Info */}
-                <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-12">
-                    <div className="space-y-2">
-                        <div className="flex items-center gap-3">
-                            <div className="bg-blue-500/10 text-blue-600 p-2 rounded-xl">
-                                <MapPin size={24} />
-                            </div>
-                            <h1 className="text-4xl md:text-6xl font-light tracking-tight text-foreground leading-none">
-                                {target.beach}
-                            </h1>
-                        </div>
-                        <p className="text-muted-foreground text-lg font-light flex items-center gap-2">
-                            日本 沿岸エリア <span className="w-1 h-1 rounded-full bg-border" /> 
-                            <span className="flex items-center gap-1 text-blue-500">
-                                <ShieldCheck size={16} /> 公認スポット
-                            </span>
-                        </p>
-                    </div>
-
-                    <div className="flex gap-3">
-                        {target.isBestSwell && (
-                            <div className="flex items-center gap-2 bg-gradient-to-r from-indigo-500 to-blue-500 text-white px-5 py-2.5 rounded-2xl text-xs font-bold tracking-widest uppercase shadow-lg shadow-blue-500/20 animate-pulse">
-                                <Waves size={16} />
-                                最高のコンディション
-                            </div>
-                        )}
-                        <div className="flex items-center gap-2 bg-white/80 backdrop-blur-md border border-blue-100 px-5 py-2.5 rounded-2xl text-xs font-bold tracking-widest uppercase text-blue-600">
-                            <Clock size={16} />
-                            最終更新: {lastUpdatedLabel}
-                        </div>
-                    </div>
-                </div>
-
-                {/* Main Stats Grid */}
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-12">
-                    
-                    {/* Primary Wave Card */}
-                    <div className="lg:col-span-2 glass-card rounded-[2.5rem] p-10 relative overflow-hidden border-white/40">
-                        <div className="absolute top-0 right-0 p-10 opacity-5">
-                            <Waves size={200} />
-                        </div>
-                        
-                        <div className="relative z-10">
-                            <div className="flex items-center justify-between mb-10">
-                                <div className="space-y-1">
-                                    <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-blue-500">主要なうねり</p>
-                                    <h2 className="text-2xl font-semibold">コンディション概要</h2>
-                                </div>
-                                <div className={`px-5 py-2 rounded-2xl text-sm font-black tracking-widest uppercase
-                                    ${target.quality === 'S' ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/30' :
-                                    target.quality === 'A' ? 'bg-blue-500 text-white shadow-lg shadow-blue-500/30' :
-                                    target.quality === 'B' ? 'bg-emerald-500 text-white shadow-lg shadow-emerald-500/30' :
-                                    target.quality === 'C' ? 'bg-amber-500 text-white shadow-lg shadow-amber-500/30' : 'bg-slate-500 text-white'}`}>
-                                    評価: {target.quality}
-                                </div>
-                            </div>
-
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-12">
-                                <div className="space-y-8">
-                                    <div>
-                                        <p className="text-muted-foreground text-sm font-medium mb-3">波のサイズ</p>
-                                        <div className="flex items-baseline gap-3">
-                                            <p className="text-7xl font-extralight text-foreground tracking-tighter leading-none">{target.height}</p>
-                                            <p className="text-xl text-muted-foreground font-light">{target.heightRange}</p>
-                                        </div>
-                                    </div>
-                                    
-                                    <div className="grid grid-cols-2 gap-8">
-                                        <div className="space-y-2">
-                                            <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">周期</p>
-                                            <p className="text-3xl font-light text-foreground">{target.period?.toFixed(1) ?? '-'} <span className="text-sm">秒</span></p>
-                                        </div>
-                                        <div className="space-y-2">
-                                            <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">沖合のうねり</p>
-                                            <p className="text-3xl font-light text-foreground">{target.rawSwellHeight?.toFixed(1) ?? '-'} <span className="text-sm">m</span></p>
-                                        </div>
-                                    </div>
-                                </div>
-
-                                <div className="space-y-8 bg-blue-50/50 rounded-[2rem] p-8 border border-blue-100/50">
-                                    <div className="flex items-center justify-between">
-                                        <div className="space-y-1">
-                                            <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider">うねりの向き</p>
-                                            <p className="text-lg font-semibold">{convertWindDirection(target.waveDirectionStr)}</p>
-                                        </div>
-                                        <div className="w-12 h-12 bg-white rounded-2xl flex items-center justify-center shadow-sm">
-                                            <ArrowUp size={24} className="text-blue-500 transition-transform duration-1000" style={{ transform: `rotate(${target.waveDirectionDeg + 180}deg)` }} />
-                                        </div>
-                                    </div>
-                                    
-                                    <div className="h-px bg-blue-100" />
-                                    
-                                    <div className="flex items-center justify-between">
-                                        <div className="space-y-1">
-                                            <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider">岸の向き</p>
-                                            <p className="text-lg font-semibold">{convertWindDirection(target.beachFacing || "N")}</p>
-                                        </div>
-                                        <div className="w-12 h-12 bg-white rounded-2xl flex items-center justify-center shadow-sm">
-                                            <ArrowUp size={24} className="text-slate-400" style={{ transform: `rotate(${dirToDeg[target.beachFacing || "N"] || 0}deg)` }} />
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    {/* Wind & Environment Card */}
-                    <div className="glass-card rounded-[2.5rem] p-10 flex flex-col border-white/40">
-                        <div className="flex items-center gap-3 mb-10">
-                            <div className="bg-amber-500/10 text-amber-600 p-2.5 rounded-xl">
-                                <Wind size={20} />
-                            </div>
-                            <h3 className="text-xl font-semibold">周辺環境</h3>
-                        </div>
-
-                        <div className="flex-1 space-y-10">
-                            <div className="space-y-4">
-                                <div className="flex items-center justify-between">
-                                    <p className="text-muted-foreground text-sm font-medium">風の状態</p>
-                                    <span className="text-xs font-bold text-emerald-500 bg-emerald-50 px-3 py-1 rounded-full uppercase">{windLabel}</span>
-                                </div>
-                                <div className="flex items-baseline gap-2">
-                                    <p className="text-6xl font-extralight text-foreground tracking-tighter leading-none">{target.windSpeed?.toFixed(1) ?? '-'}</p>
-                                    <p className="text-lg text-muted-foreground font-light tracking-tight">m/s {convertWindDirection(target.windDirection)}</p>
-                                </div>
-                            </div>
-
-                            <div className="grid grid-cols-2 gap-6">
-                                <div className="p-6 bg-blue-50/50 rounded-3xl border border-blue-100/50 space-y-2">
-                                    <div className="text-blue-500"><Thermometer size={20} /></div>
-                                    <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">水温</p>
-                                    <p className="text-2xl font-semibold leading-none">{target.temperature.toFixed(1)}°C</p>
-                                </div>
-                                <div className="p-6 bg-cyan-50/50 rounded-3xl border border-cyan-100/50 space-y-2">
-                                    <div className="text-cyan-500"><Droplets size={20} /></div>
-                                    <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">雲量</p>
-                                    <p className="text-2xl font-semibold leading-none">{target.cloudCover !== null && target.cloudCover !== undefined ? `${target.cloudCover}%` : '-'}</p>
-                                </div>
-                            </div>
-                        </div>
-                        
-                        <div className="mt-10 p-5 bg-white/50 rounded-2xl border border-blue-50 text-[11px] text-muted-foreground leading-relaxed flex gap-3">
-                            <Info size={16} className="shrink-0 text-blue-400" />
-                            <p>現在の風向きは{convertWindDirection(target.windDirection)}（{target.windSpeed?.toFixed(1) ?? '-'} m/s）。{windLabel}です。</p>
-                        </div>
-                    </div>
-                </div>
-
-                {/* Tide & Charts */}
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-12">
-                    <div className="glass-card rounded-[2.5rem] p-10 border-white/40">
-                        <div className="flex items-center justify-between mb-8">
-                            <h3 className="text-xl font-semibold tracking-tight">タイドグラフ (潮汐)</h3>
-                            <div className="text-[10px] font-black uppercase tracking-widest text-muted-foreground bg-secondary px-3 py-1 rounded-full">24時間予測</div>
-                        </div>
-                        <div className="h-[300px]">
-                            {target.hourly && (
-                                <TideChart
-                                    data={target.hourly
-                                        .filter((h, index) => index < TIDE_CHART_HOURS)
-                                        .map(h => ({
-                                            time: new Date(h.time).toLocaleTimeString('ja-JP', {
-                                                hour: '2-digit',
-                                                minute: '2-digit',
-                                                hour12: false
-                                            }),
-                                            height: h.tide || 0
-                                        }))
-                                    }
-                                />
-                            )}
-                        </div>
-                    </div>
-
-                    <div className="glass-card rounded-[2.5rem] p-10 border-white/40">
-                        <div className="flex items-center justify-between mb-8">
-                            <h3 className="text-xl font-semibold tracking-tight">時間別の波予報</h3>
-                            <div className="text-[10px] font-black uppercase tracking-widest text-muted-foreground bg-secondary px-3 py-1 rounded-full">3時間間隔</div>
-                        </div>
-                        <div className="h-[300px]">
-                            {waveData.length > 0 && <ForecastChart data={waveData} />}
-                        </div>
-                    </div>
-                </div>
-
-                {/* Extended Forecasts */}
-                <div className="space-y-12">
-                    <div className="flex flex-col gap-8">
-                        {target.daily && <WeeklyForecast data={target.daily} />}
-                    </div>
-
-                    <div className="space-y-8">
-                        <div className="flex items-center gap-3 px-2">
-                            <h3 className="text-sm font-black uppercase tracking-[0.2em] text-muted-foreground">時間別の詳細データ</h3>
-                            <div className="h-px flex-1 bg-blue-100" />
-                        </div>
-                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-                            {waveData.map((wave) => (
-                                <WaveCard
-                                    key={wave.id}
-                                    wave={wave}
-                                    isExpanded={expandedCard === wave.id}
-                                    onExpand={() => setExpandedCard(expandedCard === wave.id ? null : wave.id)}
-                                />
-                            ))}
-                        </div>
-                    </div>
-                </div>
-            </div >
-        </main >
+      <div className="min-h-screen bg-white flex items-center justify-center">
+        <div className="w-10 h-10 rounded-full border-2 border-[#E5E5E5] border-t-[#06b6d4] animate-spin" />
+      </div>
     );
+  }
+
+  if (!target) {
+    return (
+      <div className="min-h-screen bg-white">
+        <Header />
+        <div className="max-w-lg mx-auto text-center py-24 px-6">
+          <p className="text-[#0d1b2a] font-semibold text-lg mb-2">スポットが見つかりません</p>
+          <p className="text-[#707072] text-sm mb-8">お探しのスポットは登録されていません。</p>
+          <Link href="/" className="btn-dark inline-flex items-center gap-2">
+            <ArrowLeft size={14} /> 一覧に戻る
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
+  const cfg = qualityConfig[target.quality] ?? qualityConfig['D'];
+  const [prefecture, ...spotParts] = target.beach.split(/\s+/);
+  const spotName = spotParts.join(' ') || target.beach;
+
+  return (
+    <main className="min-h-screen bg-white pb-20">
+      <Header />
+
+      {/* ── Hero banner with photo ── */}
+      <div className="relative w-full overflow-hidden" style={{ height: 'clamp(180px, 40vw, 260px)' }}>
+        <img
+          src="https://images.unsplash.com/photo-1505118380757-91f5f5632de0?auto=format&fit=crop&q=80&w=1200"
+          alt={spotName}
+          className="absolute inset-0 w-full h-full object-cover"
+        />
+        <div className="absolute inset-0 bg-gradient-to-t from-[#0d1b2a]/80 via-[#0d1b2a]/30 to-transparent" />
+        <div className="absolute bottom-0 left-0 right-0 px-4 md:px-6 pb-5 max-w-2xl mx-auto">
+          <p className="text-[11px] text-white/60 font-medium mb-1">{prefecture}</p>
+          <div className="flex items-end justify-between gap-3">
+            <h1
+              className="text-white leading-none uppercase"
+              style={{
+                fontFamily: "'Barlow Condensed', Helvetica, Arial, sans-serif",
+                fontWeight: 700,
+                fontSize: 'clamp(32px, 8vw, 52px)',
+                lineHeight: 0.92,
+              }}
+            >
+              {spotName}
+            </h1>
+            <span className={`shrink-0 mb-1 text-[11px] font-bold tracking-[0.1em] uppercase px-3 py-1.5 rounded-full ${cfg.badge} ${cfg.badgeBg}`}>
+              {target.quality} · {cfg.label}
+            </span>
+          </div>
+          <div className="flex items-center gap-3 mt-2">
+            <span className="text-[11px] text-white/50 flex items-center gap-1">
+              <Clock size={10} />
+              {lastUpdatedLabel}更新
+            </span>
+            {target.isBestSwell && (
+              <span className="text-[10px] font-bold uppercase tracking-widest text-amber-400 bg-amber-900/40 border border-amber-500/30 px-2 py-0.5 rounded-full">
+                ★ BEST SWELL
+              </span>
+            )}
+          </div>
+        </div>
+      </div>
+
+      <div className="max-w-2xl mx-auto px-4 md:px-6 py-6">
+
+        {/* Back */}
+        <Link href="/" className="inline-flex items-center gap-1.5 text-[12px] font-medium text-[#9E9EA0] hover:text-[#06b6d4] transition-colors mb-6">
+          <ArrowLeft size={14} />
+          一覧に戻る
+        </Link>
+
+        {/* ── Primary stats ── */}
+        <div className="rounded-xl border border-[#E5E5E5] overflow-hidden mb-4">
+          <div className="px-4 py-3 bg-[#FAFAFA] border-b border-[#E5E5E5]">
+            <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-[#707072]">現在のコンディション</p>
+          </div>
+
+          {/* Wave height hero */}
+          <div className="px-4 py-5 border-b border-[#E5E5E5]">
+            {/* Big number */}
+            <div className="flex items-end justify-between mb-4">
+              <div>
+                <p className="text-[11px] text-[#9E9EA0] font-medium uppercase tracking-widest mb-1">波のサイズ</p>
+                <div className="flex items-baseline gap-2">
+                  <p
+                    className={`leading-none bg-gradient-to-b ${cfg.barFrom} ${cfg.barTo} bg-clip-text text-transparent`}
+                    style={{
+                      fontFamily: "'Barlow Condensed', Helvetica, Arial, sans-serif",
+                      fontWeight: 700,
+                      fontSize: 'clamp(52px, 14vw, 72px)',
+                      lineHeight: 1,
+                    }}
+                  >
+                    {target.heightMeters?.toFixed(1) ?? '—'}
+                  </p>
+                  <span className="text-[18px] font-semibold text-[#9E9EA0] mb-1">m</span>
+                </div>
+                <p
+                  className="text-[#0d1b2a] mt-1"
+                  style={{ fontFamily: "'Barlow Condensed', Helvetica, Arial, sans-serif", fontWeight: 700, fontSize: 22 }}
+                >
+                  {target.height}
+                </p>
+              </div>
+
+              {/* Wave meter */}
+              <div className="flex items-end gap-1 h-14">
+                {[0.3, 0.6, 1.0, 1.5, 2.0, 2.5, 3.0].map((threshold, i) => {
+                  const filled = (target.heightMeters ?? 0) >= threshold;
+                  return (
+                    <div
+                      key={i}
+                      className={`w-2.5 rounded-sm ${filled ? `bg-gradient-to-t ${cfg.barFrom} ${cfg.barTo}` : 'bg-[#E5E5E5]'}`}
+                      style={{ height: `${30 + i * 10}%` }}
+                    />
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* 2-col info grid */}
+            <div className="grid grid-cols-2 gap-2">
+              {[
+                { icon: <Timer size={12} />, label: '周期', value: `${target.period?.toFixed(1) ?? '—'} 秒` },
+                { icon: <Compass size={12} />, label: 'うねりの向き', value: convertWindDirection(target.waveDirectionStr) },
+                { icon: <Waves size={12} />, label: '沖合うねり', value: `${target.rawSwellHeight?.toFixed(1) ?? '—'} m` },
+                { icon: <Wind size={12} />, label: '風の状態', value: windLabel },
+              ].map(({ icon, label, value }) => (
+                <div key={label} className="bg-[#FAFAFA] rounded-lg px-3 py-2.5">
+                  <div className="flex items-center gap-1.5 mb-1 text-[#9E9EA0]">
+                    {icon}
+                    <span className="text-[10px] font-medium uppercase tracking-wider">{label}</span>
+                  </div>
+                  <p className="text-[13px] font-semibold text-[#0d1b2a]">{value}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        {/* ── Wind & Environment ── */}
+        <div className="rounded-xl border border-[#E5E5E5] overflow-hidden mb-4">
+          <div className="px-4 py-3 bg-[#FAFAFA] border-b border-[#E5E5E5]">
+            <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-[#707072]">風・環境</p>
+          </div>
+          <div className="p-3 grid grid-cols-2 gap-2">
+            {[
+              { icon: <Wind size={12} />, label: '風速', value: `${target.windSpeed?.toFixed(1) ?? '—'} m/s`, sub: convertWindDirection(target.windDirection) },
+              { icon: <Wind size={12} />, label: '風の状態', value: windLabel },
+              { icon: <Compass size={12} />, label: '岸の向き', value: convertWindDirection(target.beachFacing || 'N') },
+              { icon: <Thermometer size={12} />, label: '水温', value: `${target.temperature?.toFixed(1) ?? '—'}°C` },
+              { icon: <Cloud size={12} />, label: '雲量', value: target.cloudCover != null ? `${target.cloudCover}%` : '—' },
+            ].map(({ icon, label, value, sub }) => (
+              <div key={label} className="bg-[#FAFAFA] rounded-lg px-3 py-2.5">
+                <div className="flex items-center gap-1.5 mb-1 text-[#9E9EA0]">
+                  {icon}
+                  <span className="text-[10px] font-medium uppercase tracking-wider">{label}</span>
+                </div>
+                <p className="text-[13px] font-semibold text-[#0d1b2a]">
+                  {value}{sub && <span className="text-[11px] font-normal text-[#9E9EA0] ml-1">{sub}</span>}
+                </p>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* ── Direction compass row ── */}
+        <div className="grid grid-cols-2 gap-3 mb-8">
+          <CompassCard
+            label="うねりの向き"
+            dir={target.waveDirectionStr}
+            deg={target.waveDirectionDeg + 180}
+            color="text-[#06b6d4]"
+          />
+          <CompassCard
+            label="岸の向き"
+            dir={target.beachFacing || 'N'}
+            deg={dirToDeg[target.beachFacing || 'N'] ?? 0}
+            color="text-[#9E9EA0]"
+          />
+        </div>
+
+        {/* ── Tide chart ── */}
+        <SectionTitle>タイドグラフ（24時間）</SectionTitle>
+        <div className="rounded-xl border border-[#E5E5E5] p-4 mb-8 h-[200px]">
+          {target.hourly && (
+            <TideChart
+              data={target.hourly.slice(0, 24).map(h => ({
+                time: new Date(h.time).toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit', hour12: false }),
+                height: h.tide || 0,
+              }))}
+            />
+          )}
+        </div>
+
+        {/* ── Hourly forecast chart ── */}
+        <SectionTitle>時間別の波予報</SectionTitle>
+        <div className="rounded-xl border border-[#E5E5E5] p-4 mb-8 h-[200px]">
+          {waveData.length > 0 && <ForecastChart data={waveData} />}
+        </div>
+
+        {/* ── Hourly list ── */}
+        <SectionTitle>時間別データ</SectionTitle>
+        <div className="rounded-xl border border-[#E5E5E5] overflow-hidden mb-8">
+          {waveData.map((wave, i) => {
+            const wcfg = qualityConfig[wave.quality] ?? qualityConfig['D'];
+            return (
+              <div key={wave.id} className={`flex items-center gap-3 px-4 py-3 ${i !== waveData.length - 1 ? 'border-b border-[#E5E5E5]' : ''}`}>
+                <span className="text-[12px] font-semibold text-[#707072] w-10 shrink-0">{wave.time}</span>
+                <span className={`shrink-0 w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold ${wcfg.badge} ${wcfg.badgeBg}`}>
+                  {wave.quality}
+                </span>
+                <span className="flex-1 text-[14px] font-semibold text-[#0d1b2a]">{wave.height}</span>
+                <div className="flex items-center gap-1 text-[#9E9EA0]">
+                  <Waves size={11} />
+                  <span className="text-[11px]">{wave.period.toFixed(0)}s</span>
+                </div>
+                <div className="flex items-center gap-1 text-[#9E9EA0]">
+                  <Wind size={11} />
+                  <span className="text-[11px]">{wave.windSpeed.toFixed(1)}</span>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+
+        {/* ── Weekly forecast ── */}
+        <SectionTitle>週間予報</SectionTitle>
+        {target.daily && <WeeklyForecast data={target.daily} />}
+
+      </div>
+    </main>
+  );
 }
