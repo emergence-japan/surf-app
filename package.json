@@ -5,7 +5,6 @@
   "scripts": {
     "build": "next build",
     "dev": "next dev",
-    "lint": "tsc --noEmit",
     "start": "next start",
     "test": "vitest run",
     "test:watch": "vitest",
