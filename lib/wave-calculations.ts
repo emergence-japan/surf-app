@@ -1,4 +1,5 @@
 import type { BoardType, QualityLevel } from './types';
+import type { BayGeometry } from './surf-points';
 
 // 16方位の定数
 export const DIRS = ['N', 'NNE', 'NE', 'ENE', 'E', 'ESE', 'SE', 'SSE', 'S', 'SSW', 'SW', 'WSW', 'W', 'WNW', 'NW', 'NNW'] as const;
@@ -55,6 +56,126 @@ export function calculateEffectiveHeight(
   const attenuation = Math.max(0.05, Math.cos(angleRad));
 
   return swellHeight * attenuation;
+}
+
+/**
+ * 湾地形を考慮した有効波高を計算
+ *
+ * calculateEffectiveHeight の代替として動作する（重ね掛けではない）。
+ * 湾の形状を踏まえて、cos減衰モデルでは表現できない以下を反映する:
+ * 1. 湾口正対: スウェルが湾口の中心から来ている場合は減衰が小さい（収束係数あり）
+ * 2. 湾口端: 湾口の縁に近づくと cos に近い減衰
+ * 3. 湾口外: 岬を回折で回り込む波だけが届く（diffractionFactor が下限）
+ * 4. 周期による屈折補正: 長周期は斜め入射でも届きやすい
+ */
+export function calculateBayEffectiveHeight(
+  swellHeight: number | null | undefined,
+  swellDir: string,
+  beachFacing: string,
+  period: number | null | undefined,
+  bayGeometry: BayGeometry
+): number {
+  if (swellHeight === null || swellHeight === undefined) return 0;
+  if (!swellDir || swellDir === '-') return swellHeight;
+
+  // 開けたビーチ(open type)、または岬の少ない広い semi-enclosed は
+  // 湾形状の影響が小さく、湾モデルは陸側スウェルを過大評価しがちなので
+  // 標準のcos減衰にフォールバックする
+  const hasSignificantHeadlands = bayGeometry.headlands.length > 0
+    && bayGeometry.headlands.some((h) => h.distanceKm < 6);
+  if (bayGeometry.type === 'open' || (bayGeometry.openingAngle >= 180 && !hasSignificantHeadlands)) {
+    return calculateEffectiveHeight(swellHeight, swellDir, beachFacing, period);
+  }
+
+  const swellIdx = DIRS.indexOf(swellDir as Dir);
+  if (swellIdx === -1) {
+    return calculateEffectiveHeight(swellHeight, swellDir, beachFacing, period);
+  }
+
+  const swellDeg = swellIdx * 22.5;
+
+  // 湾口からの角度差を計算
+  let angleDiff = Math.abs(swellDeg - bayGeometry.openingDir);
+  if (angleDiff > 180) angleDiff = 360 - angleDiff;
+
+  // 周期による実効角度の補正（calculateEffectiveHeight と同じロジック）
+  if (period !== null && period !== undefined && period > 0) {
+    if (period >= 14) angleDiff *= 0.70;
+    else if (period >= 12) angleDiff *= 0.85;
+    else if (period <= 6) angleDiff *= 1.15;
+    else if (period <= 8) angleDiff *= 1.05;
+    angleDiff = Math.min(angleDiff, 180);
+  }
+
+  const halfOpening = bayGeometry.openingAngle / 2;
+
+  let attenuation: number;
+
+  if (angleDiff <= halfOpening) {
+    // スウェルが湾口内から来ている
+    // 湾口中心では convergenceFactor、端に行くほど cos 減衰へ滑らかに遷移
+    const normalized = halfOpening > 0 ? angleDiff / halfOpening : 0;
+    const inOpeningAttenuation = Math.cos((angleDiff * Math.PI) / 180);
+    attenuation = bayGeometry.convergenceFactor * (1 - normalized) + inOpeningAttenuation * normalized;
+  } else {
+    // スウェルが湾口の外から来ている → 岬の回折で一部届く
+    // 湾口端からの角度差で cos 減衰し、さらに diffractionFactor で減衰
+    // （岬の影に回り込める波の割合が diffractionFactor）
+    const excessAngle = angleDiff - halfOpening;
+    const cosDecay = Math.max(0, Math.cos((excessAngle * Math.PI) / 180));
+    attenuation = bayGeometry.diffractionFactor * cosDecay;
+  }
+
+  // 沖の島・岩礁による遮蔽効果
+  // スウェル方向と障害物方位が近く、距離が近い場合に部分的にブロック
+  if (bayGeometry.obstacles && bayGeometry.obstacles.length > 0) {
+    const obstacleAttenuation = calculateObstacleShadow(swellDeg, bayGeometry.obstacles);
+    attenuation *= obstacleAttenuation;
+  }
+
+  return swellHeight * Math.max(0.05, attenuation);
+}
+
+/**
+ * 沖の島・岩礁による波の遮蔽効果を計算
+ *
+ * - スウェルの来る方向に島がある場合、波の影が伸びてビーチに届きにくくなる
+ * - 距離が近いほど影は鋭く狭い、距離が遠いほど影は広がるが弱まる
+ * - 影の角度幅は経験的に島の規模と距離から推定
+ */
+function calculateObstacleShadow(
+  swellDeg: number,
+  obstacles: NonNullable<BayGeometry['obstacles']>
+): number {
+  let totalShadow = 1.0;
+
+  for (const obs of obstacles) {
+    // 島種別の影響強度（島>小島>岩礁）
+    const blockStrength =
+      obs.type === 'island' ? 0.6 :
+      obs.type === 'islet' ? 0.3 :
+      0.15; // reef
+
+    // 影の角度幅: 至近距離は鋭く、遠距離は広いが弱まる
+    // 0.5km → 約30°、2km → 約15°、5km → 約8°
+    const shadowAngle = Math.max(8, 30 - obs.distanceKm * 5);
+
+    // 距離による減衰（遠いほど影響弱い）
+    const distanceFactor = Math.max(0, 1 - obs.distanceKm / 5);
+
+    // スウェル方向と島方位の差
+    let angleDiff = Math.abs(swellDeg - obs.bearing);
+    if (angleDiff > 180) angleDiff = 360 - angleDiff;
+
+    if (angleDiff < shadowAngle) {
+      // 影の中心に近いほど強くブロック
+      const proximity = 1 - angleDiff / shadowAngle;
+      const shadow = blockStrength * distanceFactor * proximity;
+      totalShadow *= 1 - shadow;
+    }
+  }
+
+  return totalShadow;
 }
 
 // 波高からベースのスコアとラベルを取得（ボード種別でピークサイズが変わる）
@@ -193,6 +314,7 @@ export function analyzeSwellComponents(params: {
   windWaveDir: number | null;
   windWavePeriod: number | null;
   beachFacing: string;
+  bayGeometry?: BayGeometry;
 }): {
   effectiveSwellHeight: number;
   effectiveWindWaveHeight: number;
@@ -201,13 +323,17 @@ export function analyzeSwellComponents(params: {
   dominantDirStr: string;
   isSwellDominant: boolean;
 } {
-  const { swellHeight, swellDir, swellPeriod, windWaveHeight, windWaveDir, windWavePeriod, beachFacing } = params;
+  const { swellHeight, swellDir, swellPeriod, windWaveHeight, windWaveDir, windWavePeriod, beachFacing, bayGeometry } = params;
 
   const swellDirStr = degreesToDir(swellDir);
   const windWaveDirStr = degreesToDir(windWaveDir);
 
-  const effSwell = calculateEffectiveHeight(swellHeight, swellDirStr, beachFacing, swellPeriod);
-  const effWindWave = calculateEffectiveHeight(windWaveHeight, windWaveDirStr, beachFacing, windWavePeriod);
+  const effSwell = bayGeometry
+    ? calculateBayEffectiveHeight(swellHeight, swellDirStr, beachFacing, swellPeriod, bayGeometry)
+    : calculateEffectiveHeight(swellHeight, swellDirStr, beachFacing, swellPeriod);
+  const effWindWave = bayGeometry
+    ? calculateBayEffectiveHeight(windWaveHeight, windWaveDirStr, beachFacing, windWavePeriod, bayGeometry)
+    : calculateEffectiveHeight(windWaveHeight, windWaveDirStr, beachFacing, windWavePeriod);
 
   // 波エネルギーの合成（二乗和の平方根）
   const combined = Math.sqrt(effSwell ** 2 + effWindWave ** 2);
