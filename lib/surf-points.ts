@@ -402,6 +402,28 @@ export const surfPoints: SurfPoint[] = [
     },
   },
   {
+    id: 'point-14',
+    name: '高知 尾崎ビーチ',
+    lat: 33.367,
+    lon: 134.2,
+    bestSwell: 'ESE, SE, SSE, S',
+    note: '室戸市。太平洋に開けたオープンビーチ。南〜東南東うねりに素直に反応。',
+    beachFacing: 'SE',
+    tideStation: 'muroto',
+    bayGeometry: {
+      // 室戸岬北側の直線的な海岸。遮蔽物が少なくほぼオープン。
+      // 北側（15°/4km付近）に小さな岬があるが影響は軽微。
+      type: 'open',
+      openingAngle: 220,
+      openingDir: 135,
+      openingDirStr: 'SE',
+      diffractionFactor: 0.95,
+      convergenceFactor: 0.95,
+      headlands: [],
+      obstacles: [],
+    },
+  },
+  {
     id: 'point-13',
     name: '徳島 内妻',
     lat: 33.616667,
