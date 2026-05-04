@@ -76,3 +76,26 @@ export interface TideDataPoint {
     time: string;
     height: number;
 }
+
+// API: forecast レスポンスの 1 スポット分エンベロープ
+export type SpotFetchStatus = 'fresh' | 'stale' | 'error';
+
+export interface SpotForecastEnvelope {
+    id: string;
+    name: string;
+    status: SpotFetchStatus;
+    fetchedAt: number | null;  // epoch ms（error 時は null）
+    data: SurfPointDetail | null;
+    error?: string;
+}
+
+export interface ForecastApiResponse {
+    spots: SpotForecastEnvelope[];
+    meta: {
+        total: number;
+        fresh: number;
+        stale: number;
+        error: number;
+        servedAt: number; // epoch ms
+    };
+}
