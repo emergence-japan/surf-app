@@ -403,7 +403,7 @@ export const surfPoints: SurfPoint[] = [
   },
   {
     id: 'point-15',
-    name: '島根 国府海水浴場',
+    name: '島根 千畳',
     lat: 34.9617,
     lon: 132.135,
     bestSwell: 'NW, NNW, WNW, W',
