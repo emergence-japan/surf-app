@@ -7,7 +7,7 @@ import Link from 'next/link';
 import Header from '@/components/header';
 import TideChart from '@/components/tide-chart';
 import ForecastChart from '@/components/forecast-chart';
-import WeeklyForecast from '@/components/weekly-forecast';
+import HourlyForecastTable from '@/components/hourly-forecast-table';
 import { convertWindDirection } from '@/lib/converters';
 import { useForecast } from '@/context/forecast-context';
 import type { SurfPointDetail, QualityLevel } from '@/lib/types';
@@ -325,9 +325,16 @@ export default function PointDetail() {
         </div>
 
 
-        {/* ── Weekly forecast ── */}
-        <SectionTitle>週間予報</SectionTitle>
-        {target.daily && <WeeklyForecast data={target.daily} />}
+        {/* ── Hourly forecast table ── */}
+        <SectionTitle>週間予報（3時間ごと）</SectionTitle>
+        {target.hourly && (
+          <HourlyForecastTable
+            hourly={target.hourly}
+            weatherCodes={Object.fromEntries(
+              (target.daily ?? []).map(d => [d.time, d.weatherCode])
+            )}
+          />
+        )}
 
       </div>
     </main>
