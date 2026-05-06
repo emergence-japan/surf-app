@@ -225,18 +225,18 @@ export const surfPoints: SurfPoint[] = [
     name: '和歌山 磯ノ浦',
     lat: 34.257,
     lon: 135.12,
-    bestSwell: 'S, SSW, SW, WSW',
-    note: '大阪湾内、強い南が必要',
-    beachFacing: 'S',
+    bestSwell: 'SSW, SW, WSW, S',
+    note: '大阪湾内、強い南西〜南が必要',
+    beachFacing: 'SSW',
     tideStation: 'osaka',
     bayGeometry: {
-      // 大阪湾内の南向きビーチ。友ヶ島水道から入る南〜南西うねりに反応。
-      // 友ヶ島が南側の開口を絞るため、強い南うねりでないと届かない。
+      // 大阪湾内の南西向きビーチ。友ヶ島水道から入る南西〜南うねりに反応。
+      // 友ヶ島が南側の開口を絞るため、強いうねりでないと届かない。
       // OSM海岸線が大阪湾全体を拾い自動計算が不安定なため手動修正済み。
       type: 'enclosed',
       openingAngle: 120,
-      openingDir: 185,
-      openingDirStr: 'S',
+      openingDir: 210,
+      openingDirStr: 'SSW',
       diffractionFactor: 0.55,
       convergenceFactor: 1.0,
       headlands: [
@@ -476,6 +476,79 @@ export const surfPoints: SurfPoint[] = [
       obstacles: [
         { type: 'islet', bearing: 154, distanceKm: 3.46, name: '小島' },
         { type: 'islet', bearing: 199, distanceKm: 3.88, name: '二子島' },
+      ],
+    },
+  },
+  {
+    id: 'point-17',
+    name: '京都 葛野浜',
+    lat: 35.6647,
+    lon: 134.9272,
+    bestSwell: 'N, NNW, NNE, NW',
+    note: '久美浜湾口東側、日本海に直接面した北向きビーチ',
+    beachFacing: 'N',
+    tideStation: 'maizuru',
+    bayGeometry: {
+      // 日本海に開いた北向きビーチ。北〜北西のうねりが入りやすい。
+      // 西側に沖ノ島（NW方向）があり北西うねりを部分遮蔽。
+      type: 'semi-enclosed',
+      openingAngle: 150,
+      openingDir: 355,
+      openingDirStr: 'N',
+      diffractionFactor: 0.7,
+      convergenceFactor: 1.0,
+      headlands: [
+        { bearing: 270, distanceKm: 2.0, name: '久美浜湾口西岸' },
+        { bearing: 90,  distanceKm: 3.5, name: '葛野浜東端' },
+      ],
+      obstacles: [
+        { type: 'island', bearing: 315, distanceKm: 3.5, name: '沖ノ島' },
+      ],
+    },
+  },
+  {
+    id: 'point-18',
+    name: '鳥取 井手ヶ浜',
+    lat: 35.5223,
+    lon: 133.9860,
+    bestSwell: 'N, NNW, NNE, NW',
+    note: '日本海に直接面した北向きビーチ',
+    beachFacing: 'N',
+    tideStation: 'maizuru',
+    bayGeometry: {
+      // 日本海に開いた北向きのオープンビーチ。北〜北西うねりが入りやすい。
+      type: 'open',
+      openingAngle: 180,
+      openingDir: 360,
+      openingDirStr: 'N',
+      diffractionFactor: 0.8,
+      convergenceFactor: 1.0,
+      headlands: [
+        { bearing: 270, distanceKm: 1.5, name: '井手ヶ浜西端' },
+        { bearing: 90,  distanceKm: 1.5, name: '井手ヶ浜東端' },
+      ],
+    },
+  },
+  {
+    id: 'point-19',
+    name: '鳥取 青谷海岸',
+    lat: 35.5167,
+    lon: 134.0833,
+    bestSwell: 'N, NNW, NNE, NW',
+    note: '日本海に面した北向きビーチ',
+    beachFacing: 'N',
+    tideStation: 'maizuru',
+    bayGeometry: {
+      // 日本海に開いた北向きのオープンビーチ。北〜北西うねりが入りやすい。
+      type: 'open',
+      openingAngle: 180,
+      openingDir: 360,
+      openingDirStr: 'N',
+      diffractionFactor: 0.8,
+      convergenceFactor: 1.0,
+      headlands: [
+        { bearing: 270, distanceKm: 2.0, name: '青谷海岸西端' },
+        { bearing: 90,  distanceKm: 2.0, name: '青谷海岸東端' },
       ],
     },
   },

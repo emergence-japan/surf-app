@@ -208,13 +208,18 @@ function buildDailyData(waveRes: any, windRes: any, point: SurfPoint) {
     const hourlySST = waveRes.hourly.sea_surface_temperature_marine_best_match ?? waveRes.hourly.sea_surface_temperature_gwam ?? waveRes.hourly.sea_surface_temperature;
     const dSST = hourlySST?.length > 0 ? (hourlySST[noonIndex] ?? hourlySST[0] ?? 0) : 0;
 
+    // 日次APIには周期データがないため、その日の正午のhourly周期を代表値として使用
+    const hourlySwellPeriod = waveRes.hourly.swell_wave_period_marine_best_match ?? waveRes.hourly.swell_wave_period_gwam ?? waveRes.hourly.swell_wave_period;
+    const hourlyWavePeriod = waveRes.hourly.wave_period_marine_best_match ?? waveRes.hourly.wave_period_gwam ?? waveRes.hourly.wave_period;
+    const dPeriod = hourlySwellPeriod?.[noonIndex] ?? hourlyWavePeriod?.[noonIndex] ?? 0;
+
     const dWDirStr = degreesToDir(dWaveDirDom);
     const dEffectiveHeight = point.bayGeometry
       ? calculateBayEffectiveHeight(dWaveHeightMax, dWDirStr, point.beachFacing, null, point.bayGeometry)
       : calculateEffectiveHeight(dWaveHeightMax, dWDirStr, point.beachFacing);
     const dWBase = getWaveBaseScore(dEffectiveHeight);
     const dWindDirStr = degreesToDir(dWindDirDom);
-    const dIsBestSwell = checkBestSwell(point.bestSwell, dWDirStr, 0);
+    const dIsBestSwell = checkBestSwell(point.bestSwell, dWDirStr, dPeriod);
     const dWindEffect = getWindEffect(point.beachFacing, dWindDirStr, dWindSpdMax / 3.6);
 
     return {
@@ -227,7 +232,7 @@ function buildDailyData(waveRes: any, windRes: any, point: SurfPoint) {
       temperatureMax: dSST,
       temperatureMin: dSST,
       weatherCode: dWeatherCode,
-      quality: calculateQuality(dWBase.score, dWindEffect, dIsBestSwell, dEffectiveHeight, 0),
+      quality: calculateQuality(dWBase.score, dWindEffect, dIsBestSwell, dEffectiveHeight, dPeriod),
     };
   });
 }
