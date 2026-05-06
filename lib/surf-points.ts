@@ -198,26 +198,52 @@ export const surfPoints: SurfPoint[] = [
     beachFacing: 'E',
     tideStation: 'toba',
     bayGeometry: {
-      // 志摩半島の入江。東〜南東方向に開口。
-      // 伊勢湾内のため外洋スウェルはかなり減衰して届く。
-      // OSM海岸線が複雑で自動計算が不安定なため手動修正済み。
-      type: 'enclosed',
-      openingAngle: 60,
-      openingDir: 100,
-      openingDirStr: 'E',
-      diffractionFactor: 0.3,
-      convergenceFactor: 1.2,
+      // 志摩半島外海側の太平洋に面した遠浅オープンビーチ（約3km）。
+      // 伊勢湾ではなく太平洋直面。東〜南東うねりがコンスタントに届く。
+      // 南側に志摩半島の岬群（老岬など）が連なりSSW以南を遮蔽。
+      // 北側は開けており、E〜SEが最もオープン。
+      type: 'semi-enclosed',
+      openingAngle: 160,
+      openingDir: 120,
+      openingDirStr: 'ESE',
+      diffractionFactor: 0.7,
+      convergenceFactor: 1.0,
       headlands: [
         { bearing: 172, distanceKm: 4.3, name: '崎ノ城' },
         { bearing: 178, distanceKm: 5.9, name: '鳶ヶ巣' },
         { bearing: 170, distanceKm: 7.7, name: '老岬' },
       ],
       obstacles: [
-        { type: 'island', bearing: 312, distanceKm: 1.63, name: '渡鹿野島' },
         { type: 'islet',  bearing: 175, distanceKm: 3.62, name: '油瀬' },
         { type: 'islet',  bearing: 208, distanceKm: 6.60, name: '立石夫婦岩' },
         { type: 'island', bearing: 226, distanceKm: 7.41, name: '弁天島' },
       ],
+    },
+  },
+  {
+    id: 'point-20',
+    name: '三重 市後浜',
+    lat: 34.305,
+    lon: 136.886,
+    bestSwell: 'E, ESE, SE, SSE, S',
+    note: '国府の浜の南約5km。太平洋に面した白砂ビーチ。ドン深気味のため胸〜頭サイズで良い波になりやすい。',
+    beachFacing: 'ESE',
+    tideStation: 'toba',
+    bayGeometry: {
+      // 志摩半島外海側の太平洋に面したビーチ。国府の浜より南東寄りに開口。
+      // 南側に志摩半島の岬群が連なりSSW以南を遮蔽。
+      // 国府の浜と同様に外洋うねりが届きやすいオープン系。
+      type: 'semi-enclosed',
+      openingAngle: 150,
+      openingDir: 130,
+      openingDirStr: 'SE',
+      diffractionFactor: 0.65,
+      convergenceFactor: 1.0,
+      headlands: [
+        { bearing: 10,  distanceKm: 3.0, name: '国府岬' },
+        { bearing: 200, distanceKm: 4.0, name: '志島岬' },
+      ],
+      obstacles: [],
     },
   },
   {
