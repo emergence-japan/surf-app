@@ -230,20 +230,29 @@ export const surfPoints: SurfPoint[] = [
     beachFacing: 'ESE',
     tideStation: 'toba',
     bayGeometry: {
-      // 志摩半島外海側の太平洋に面したビーチ。国府の浜より南東寄りに開口。
-      // 南側に志摩半島の岬群が連なりSSW以南を遮蔽。
-      // 国府の浜と同様に外洋うねりが届きやすいオープン系。
+      // 志摩半島外海側、太平洋に面したビーチ。
+      // 北側に崎ノ城(NNE 1.3km)、南側に鳶ヶ巣(SSE 0.4km)・老岬(SSE 2.5km)・大王崎(SSE 3.3km)が連なる。
+      // 実質E〜SE方向の約120°が有効開口。岬群が近接するためdiffraction適度。
+      // OSM自動計算値はリアス海岸により破綻するため手動修正済み（岬・障害物リストはOverpass実測）。
       type: 'semi-enclosed',
-      openingAngle: 150,
-      openingDir: 130,
-      openingDirStr: 'SE',
-      diffractionFactor: 0.65,
+      openingAngle: 130,
+      openingDir: 110,
+      openingDirStr: 'ESE',
+      diffractionFactor: 0.55,
       convergenceFactor: 1.0,
       headlands: [
-        { bearing: 10,  distanceKm: 3.0, name: '国府岬' },
-        { bearing: 200, distanceKm: 4.0, name: '志島岬' },
+        { bearing: 160, distanceKm: 0.4, name: '鳶ヶ巣' },
+        { bearing: 22,  distanceKm: 1.3, name: '崎ノ城' },
+        { bearing: 150, distanceKm: 2.5, name: '老岬' },
+        { bearing: 154, distanceKm: 3.3, name: '大王崎' },
+        { bearing: 199, distanceKm: 5.0, name: '退治崎' },
+        { bearing: 209, distanceKm: 7.4, name: '麦崎' },
       ],
-      obstacles: [],
+      obstacles: [
+        { type: 'islet', bearing: 7,   distanceKm: 1.86, name: '油瀬' },
+        { type: 'islet', bearing: 263, distanceKm: 3.22, name: '立石夫婦岩' },
+        { type: 'islet', bearing: 143, distanceKm: 3.39, name: '大王島' },
+      ],
     },
   },
   {
