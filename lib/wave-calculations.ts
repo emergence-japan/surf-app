@@ -12,6 +12,14 @@ export function degreesToDir(degrees: number | null | undefined): string {
   return DIRS[dirIndex];
 }
 
+// 短周期風波は同じ波高でも実感サイズが小さいため補正係数を返す
+function periodHeightFactor(period: number | null | undefined): number {
+  if (period === null || period === undefined || period <= 0) return 1.0;
+  if (period <= 6) return 0.70;
+  if (period <= 8) return 0.85;
+  return 1.0;
+}
+
 // ビーチでの有効な波高を計算
 // - cos関数で物理的に正確な角度減衰を計算
 // - 周期が長いほど屈折でビーチに届きやすいため実効角度を補正
@@ -55,7 +63,7 @@ export function calculateEffectiveHeight(
   const angleRad = (angleDeg * Math.PI) / 180;
   const attenuation = Math.max(0.05, Math.cos(angleRad));
 
-  return swellHeight * attenuation;
+  return swellHeight * attenuation * periodHeightFactor(period);
 }
 
 /**
@@ -133,7 +141,7 @@ export function calculateBayEffectiveHeight(
     attenuation *= obstacleAttenuation;
   }
 
-  return swellHeight * Math.max(0.05, attenuation);
+  return swellHeight * Math.max(0.05, attenuation) * periodHeightFactor(period);
 }
 
 /**
