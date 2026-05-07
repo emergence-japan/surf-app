@@ -195,29 +195,23 @@ export const surfPoints: SurfPoint[] = [
     lon: 136.885,
     bestSwell: 'E, ESE, SE, SSE, S',
     note: '東〜南うねりメイン',
-    beachFacing: 'E',
+    beachFacing: 'ESE',
     tideStation: 'toba',
     bayGeometry: {
-      // 志摩半島外海側の太平洋に面した遠浅オープンビーチ（約3km）。
-      // 伊勢湾ではなく太平洋直面。東〜南東うねりがコンスタントに届く。
-      // 南側に志摩半島の岬群（老岬など）が連なりSSW以南を遮蔽。
-      // 北側は開けており、E〜SEが最もオープン。
+      // 志摩半島外海側、太平洋に面した南北に走るオープンビーチ（約3km）。
+      // 北側に安乗埼(N 約4km)、南側に大王崎(SSE 約8km)があり広く開ける。
+      // E〜SEが最もオープン。市後浜と同一の海岸線上にあり地形条件はほぼ同じ。
       type: 'semi-enclosed',
       openingAngle: 160,
-      openingDir: 120,
+      openingDir: 110,
       openingDirStr: 'ESE',
       diffractionFactor: 0.7,
       convergenceFactor: 1.0,
       headlands: [
-        { bearing: 172, distanceKm: 4.3, name: '崎ノ城' },
-        { bearing: 178, distanceKm: 5.9, name: '鳶ヶ巣' },
+        { bearing: 0,   distanceKm: 4.0, name: '安乗埼' },
         { bearing: 170, distanceKm: 7.7, name: '老岬' },
       ],
-      obstacles: [
-        { type: 'islet',  bearing: 175, distanceKm: 3.62, name: '油瀬' },
-        { type: 'islet',  bearing: 208, distanceKm: 6.60, name: '立石夫婦岩' },
-        { type: 'island', bearing: 226, distanceKm: 7.41, name: '弁天島' },
-      ],
+      obstacles: [],
     },
   },
   {
@@ -230,18 +224,18 @@ export const surfPoints: SurfPoint[] = [
     beachFacing: 'ESE',
     tideStation: 'toba',
     bayGeometry: {
-      // 志摩半島外海側の太平洋に面したビーチ。国府の浜より南東寄りに開口。
-      // 南側に志摩半島の岬群が連なりSSW以南を遮蔽。
-      // 国府の浜と同様に外洋うねりが届きやすいオープン系。
+      // 志摩半島外海側、太平洋に面した南北に走るビーチ。国府の浜と同一の海岸線上。
+      // 南側に大王崎(SSE 約3km)があり南南西以南を遮蔽。北側は開ける。
+      // E〜SEが最もオープン。地形条件は国府の浜とほぼ同じだがやや南寄り。
       type: 'semi-enclosed',
-      openingAngle: 150,
-      openingDir: 130,
-      openingDirStr: 'SE',
-      diffractionFactor: 0.65,
+      openingAngle: 160,
+      openingDir: 110,
+      openingDirStr: 'ESE',
+      diffractionFactor: 0.7,
       convergenceFactor: 1.0,
       headlands: [
-        { bearing: 10,  distanceKm: 3.0, name: '国府岬' },
-        { bearing: 200, distanceKm: 4.0, name: '志島岬' },
+        { bearing: 154, distanceKm: 3.3, name: '大王崎' },
+        { bearing: 209, distanceKm: 7.4, name: '麦崎' },
       ],
       obstacles: [],
     },
