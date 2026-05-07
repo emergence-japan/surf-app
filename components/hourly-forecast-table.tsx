@@ -18,6 +18,17 @@ const qualityColor: Record<string, string> = {
   D: 'bg-slate-200 text-slate-500',
 };
 
+const qualityBarColor: Record<string, string> = {
+  S: 'bg-amber-400',
+  A: 'bg-cyan-500',
+  B: 'bg-emerald-500',
+  C: 'bg-slate-400',
+  D: 'bg-slate-300',
+};
+
+// 波高バーの最大基準値（m）。3m超は満タン表示。
+const WAVE_MAX_M = 3.0;
+
 const dirToDeg: Record<string, number> = {
   N:0,NNE:22.5,NE:45,ENE:67.5,E:90,ESE:112.5,SE:135,SSE:157.5,
   S:180,SSW:202.5,SW:225,WSW:247.5,W:270,WNW:292.5,NW:315,NNW:337.5,
@@ -169,12 +180,20 @@ export default function HourlyForecastTable({ hourly, weatherCodes }: Props) {
                   }
                 </div>
 
-                {/* 波高 + クオリティ */}
-                <div className="py-2.5 flex flex-col items-center gap-0.5">
-                  <QualityBadge q={row.quality} />
-                  <span className="text-[11px] font-semibold leading-none mt-0.5">
-                    {row.waveHeight.toFixed(2)}m
-                  </span>
+                {/* 波高 + クオリティ + 横棒バー */}
+                <div className="py-2.5 px-1.5 flex flex-col items-center gap-1">
+                  <div className="flex items-center gap-1.5">
+                    <QualityBadge q={row.quality} />
+                    <span className="text-[11px] font-semibold leading-none">
+                      {row.waveHeight.toFixed(2)}m
+                    </span>
+                  </div>
+                  <div className="w-full h-1 rounded-full bg-[#F0F0F0] overflow-hidden">
+                    <div
+                      className={`h-full rounded-full ${qualityBarColor[row.quality] ?? qualityBarColor['D']}`}
+                      style={{ width: `${Math.min(100, (row.waveHeight / WAVE_MAX_M) * 100)}%` }}
+                    />
+                  </div>
                 </div>
 
                 {/* 周期 */}
