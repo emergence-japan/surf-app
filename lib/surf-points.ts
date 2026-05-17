@@ -572,4 +572,146 @@ export const surfPoints: SurfPoint[] = [
       ],
     },
   },
+  {
+    id: 'point-20',
+    name: '高知 仁淀川河口',
+    lat: 33.4889,
+    lon: 133.4625,
+    bestSwell: 'S, SSW, SSE, SW',
+    note: '土佐市・いの町境。仁淀川河口の河口サンドバー。土佐湾に南〜南西向きに開けた河口ポイント。南〜南西うねりに反応しやすい。',
+    beachFacing: 'S',
+    tideStation: 'muroto',
+    bayGeometry: {
+      // 土佐湾に南向きに開けたオープンな河口。西側に横浪半島が緩やかな遮蔽。
+      type: 'open',
+      openingAngle: 200,
+      openingDir: 180,
+      openingDirStr: 'S',
+      diffractionFactor: 0.9,
+      convergenceFactor: 1.0,
+      headlands: [
+        { bearing: 250, distanceKm: 15.0, name: '横浪半島' },
+      ],
+      obstacles: [],
+    },
+  },
+  {
+    id: 'point-21',
+    name: '高知 平野海岸',
+    lat: 32.9314,
+    lon: 132.9912,
+    bestSwell: 'SW, SSW, S, WSW',
+    note: '黒潮町。双海の南東側に位置する砂浜。海岸線は北西〜南東に走り、太平洋に南西向きに開けたオープンビーチ。南西〜南うねりに素直に反応。足摺岬が南南西方向を遠方から若干遮蔽する。',
+    beachFacing: 'SW',
+    tideStation: 'muroto',
+    bayGeometry: {
+      // 海岸線は北西〜南東に走り、太平洋に南西向きに開いたオープンな海岸。
+      // 南南西遠方に足摺岬（約195°/38km）があるが遮蔽効果は小さい。
+      type: 'open',
+      openingAngle: 210,
+      openingDir: 225,
+      openingDirStr: 'SW',
+      diffractionFactor: 0.92,
+      convergenceFactor: 1.0,
+      headlands: [
+        { bearing: 195, distanceKm: 38.0, name: '足摺岬' },
+      ],
+      obstacles: [],
+    },
+  },
+  {
+    id: 'point-22',
+    name: '高知 大方浮鞭',
+    lat: 33.034025,
+    lon: 133.03129,
+    bestSwell: 'SW, SSW, S, WSW',
+    note: '黒潮町大方。浮鞭海岸。海岸線は北西〜南東に走り、太平洋に南西向きに開けたオープンビーチ。南西〜南うねりに素直に反応。入野海岸と連続する砂浜で、コンスタントにサーフできる高知西部の人気ポイント。',
+    beachFacing: 'SW',
+    tideStation: 'muroto',
+    bayGeometry: {
+      // 海岸線は北西〜南東に走り、太平洋に南西向きに開いたオープンな直線海岸。
+      // 南南西遠方に足摺岬（約197°/42km）があるが遮蔽効果は小さい。
+      type: 'open',
+      openingAngle: 210,
+      openingDir: 225,
+      openingDirStr: 'SW',
+      diffractionFactor: 0.92,
+      convergenceFactor: 1.0,
+      headlands: [
+        { bearing: 197, distanceKm: 42.0, name: '足摺岬' },
+      ],
+      obstacles: [],
+    },
+  },
+  {
+    id: 'point-23',
+    name: '高知 入野海岸',
+    lat: 33.023754,
+    lon: 133.017241,
+    bestSwell: 'SW, SSW, S, WSW',
+    note: '黒潮町入野。入野松原に面した砂浜。海岸線は北西〜南東に走り、太平洋に南西向きに開けたオープンビーチ。大方浮鞭と連続する長大な砂浜の中央エリア。',
+    beachFacing: 'SW',
+    tideStation: 'muroto',
+    bayGeometry: {
+      // 海岸線は北西〜南東に走り、太平洋に南西向きに開いたオープンな海岸。
+      type: 'open',
+      openingAngle: 210,
+      openingDir: 225,
+      openingDirStr: 'SW',
+      diffractionFactor: 0.92,
+      convergenceFactor: 1.0,
+      headlands: [
+        { bearing: 196, distanceKm: 40.0, name: '足摺岬' },
+      ],
+      obstacles: [],
+    },
+  },
+  {
+    id: 'point-24',
+    name: '高知 双海海岸',
+    lat: 32.9426,
+    lon: 133.0008,
+    bestSwell: 'SW, SSW, S, WSW',
+    note: '黒潮町双海。双海サーフビーチ。入野海岸の南東側に位置する砂浜。海岸線は北西〜南東に走り、太平洋に南西向きに開けたビーチ。南西〜南うねりに反応しやすい。',
+    beachFacing: 'SW',
+    tideStation: 'muroto',
+    bayGeometry: {
+      // 海岸線は北西〜南東に走り、太平洋に南西向きに開いたオープンな海岸。
+      // 南南西遠方に足摺岬（約194°/36km）があるが遮蔽効果は小さい。
+      type: 'open',
+      openingAngle: 210,
+      openingDir: 225,
+      openingDirStr: 'SW',
+      diffractionFactor: 0.92,
+      convergenceFactor: 1.0,
+      headlands: [
+        { bearing: 194, distanceKm: 36.0, name: '足摺岬' },
+      ],
+      obstacles: [],
+    },
+  },
+  {
+    id: 'point-25',
+    name: '高知 大岐海岸',
+    lat: 32.819547,
+    lon: 132.950584,
+    bestSwell: 'SE, SSE, S, ESE',
+    note: '土佐清水市大岐。足摺岬の北東側に位置する弓形の砂浜。太平洋に東〜南東向きに開けたビーチで、南東〜南うねりに最もよく反応。足摺岬が南西〜西方向を遮蔽するため、その方向のうねりは入りにくい。',
+    beachFacing: 'SE',
+    tideStation: 'muroto',
+    bayGeometry: {
+      // 太平洋に東〜南東向きに開いた弓形ビーチ。
+      // 足摺岬（約215°/10km）が南西〜西を遮蔽。
+      type: 'semi-enclosed',
+      openingAngle: 170,
+      openingDir: 130,
+      openingDirStr: 'SE',
+      diffractionFactor: 0.85,
+      convergenceFactor: 1.0,
+      headlands: [
+        { bearing: 215, distanceKm: 10.0, name: '足摺岬' },
+      ],
+      obstacles: [],
+    },
+  },
 ];
