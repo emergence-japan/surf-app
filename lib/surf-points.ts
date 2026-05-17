@@ -577,16 +577,16 @@ export const surfPoints: SurfPoint[] = [
     name: '高知 仁淀川河口',
     lat: 33.45993141538984,
     lon: 133.48098450723376,
-    bestSwell: 'S, SSW, SSE, SW',
-    note: '土佐市・いの町境。仁淀川河口の河口サンドバー。土佐湾に南〜南西向きに開けた河口ポイント。南〜南西うねりに反応しやすい。',
-    beachFacing: 'S',
+    bestSwell: 'SE, SSE, ESE, S',
+    note: '土佐市・いの町境。仁淀川河口の河口サンドバー。土佐湾に南東向きに開けた河口ポイント。南東〜南うねりに反応しやすい。',
+    beachFacing: 'SE',
     tideStation: 'muroto',
     bayGeometry: {
-      // 土佐湾に南向きに開けたオープンな河口。西側に横浪半島が緩やかな遮蔽。
+      // 土佐湾に南東向きに開けたオープンな河口。西側に横浪半島が緩やかな遮蔽。
       type: 'open',
       openingAngle: 200,
-      openingDir: 180,
-      openingDirStr: 'S',
+      openingDir: 135,
+      openingDirStr: 'SE',
       diffractionFactor: 0.9,
       convergenceFactor: 1.0,
       headlands: [
