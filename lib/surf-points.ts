@@ -573,7 +573,7 @@ export const surfPoints: SurfPoint[] = [
     },
   },
   {
-    id: 'point-20',
+    id: 'point-26',
     name: '高知 仁淀川河口',
     lat: 33.4889,
     lon: 133.4625,
@@ -596,7 +596,7 @@ export const surfPoints: SurfPoint[] = [
     },
   },
   {
-    id: 'point-21',
+    id: 'point-27',
     name: '高知 平野海岸',
     lat: 32.9314,
     lon: 132.9912,
@@ -620,7 +620,7 @@ export const surfPoints: SurfPoint[] = [
     },
   },
   {
-    id: 'point-22',
+    id: 'point-28',
     name: '高知 大方浮鞭',
     lat: 33.034025,
     lon: 133.03129,
@@ -644,7 +644,7 @@ export const surfPoints: SurfPoint[] = [
     },
   },
   {
-    id: 'point-23',
+    id: 'point-29',
     name: '高知 入野海岸',
     lat: 33.023754,
     lon: 133.017241,
@@ -667,7 +667,7 @@ export const surfPoints: SurfPoint[] = [
     },
   },
   {
-    id: 'point-24',
+    id: 'point-30',
     name: '高知 双海海岸',
     lat: 32.9426,
     lon: 133.0008,
@@ -691,7 +691,7 @@ export const surfPoints: SurfPoint[] = [
     },
   },
   {
-    id: 'point-25',
+    id: 'point-31',
     name: '高知 大岐海岸',
     lat: 32.819547,
     lon: 132.950584,
