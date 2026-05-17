@@ -18,7 +18,7 @@ export default function Home() {
     return groupByRegion(filtered);
   }, [allBeachesData, searchQuery]);
 
-  const totalSpots = regionGroups.reduce((sum, g) => sum + g.points.length, 0);
+  const totalSpots = regionGroups.reduce((sum, g) => sum + g.prefectures.reduce((s, p) => s + p.points.length, 0), 0);
   const isSearching = searchQuery.length > 0;
 
   return (

@@ -82,31 +82,47 @@ export function getRegion(beach: string): RegionName {
   return PREFECTURE_TO_REGION[pref] ?? 'その他';
 }
 
-export interface RegionGroup {
-  region: RegionName;
+export interface PrefectureGroup {
+  prefecture: string;
   points: SurfPointDetail[];
   bestQuality: string;
 }
 
+export interface RegionGroup {
+  region: RegionName;
+  prefectures: PrefectureGroup[];
+  bestQuality: string;
+}
+
+function sortPoints(points: SurfPointDetail[]): SurfPointDetail[] {
+  return [...points].sort((a, b) => {
+    const qDiff = (QUALITY_ORDER[a.quality] ?? 5) - (QUALITY_ORDER[b.quality] ?? 5);
+    if (qDiff !== 0) return qDiff;
+    return (b.heightMeters ?? 0) - (a.heightMeters ?? 0);
+  });
+}
+
 export function groupByRegion(points: SurfPointDetail[]): RegionGroup[] {
-  const map = new Map<RegionName, SurfPointDetail[]>();
+  const map = new Map<RegionName, Map<string, SurfPointDetail[]>>();
 
   for (const point of points) {
     const region = getRegion(point.beach);
-    const existing = map.get(region) ?? [];
-    map.set(region, [...existing, point]);
+    const pref = getPrefecture(point.beach);
+    if (!map.has(region)) map.set(region, new Map());
+    const prefMap = map.get(region)!;
+    const existing = prefMap.get(pref) ?? [];
+    prefMap.set(pref, [...existing, point]);
   }
 
   return REGION_ORDER
     .filter(region => map.has(region))
     .map(region => {
-      const regionPoints = map.get(region)!;
-      const sorted = [...regionPoints].sort((a, b) => {
-        const qDiff = (QUALITY_ORDER[a.quality] ?? 5) - (QUALITY_ORDER[b.quality] ?? 5);
-        if (qDiff !== 0) return qDiff;
-        return (b.heightMeters ?? 0) - (a.heightMeters ?? 0);
-      });
-      const bestQuality = sorted[0]?.quality ?? 'D';
-      return { region, points: sorted, bestQuality };
+      const prefMap = map.get(region)!;
+      const prefectures: PrefectureGroup[] = [...prefMap.entries()].map(([prefecture, pts]) => {
+        const sorted = sortPoints(pts);
+        return { prefecture, points: sorted, bestQuality: sorted[0]?.quality ?? 'D' };
+      }).sort((a, b) => (QUALITY_ORDER[a.bestQuality] ?? 5) - (QUALITY_ORDER[b.bestQuality] ?? 5));
+      const bestQuality = prefectures[0]?.bestQuality ?? 'D';
+      return { region, prefectures, bestQuality };
     });
 }

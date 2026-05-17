@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { Wind, MapPin, ChevronDown, ArrowUp } from 'lucide-react';
-import type { RegionGroup as RegionGroupType } from '@/lib/regions';
+import type { RegionGroup as RegionGroupType, PrefectureGroup } from '@/lib/regions';
 import type { SurfPointDetail } from '@/lib/types';
 
 const qualityConfig: Record<string, {
@@ -91,6 +91,26 @@ function SpotRow({ point }: { point: SurfPointDetail }) {
   );
 }
 
+function PrefectureSection({ prefGroup }: { prefGroup: PrefectureGroup }) {
+  const cfg = qualityConfig[prefGroup.bestQuality] ?? qualityConfig['D'];
+  return (
+    <div className="border-b border-[#E5E5E5] last:border-b-0">
+      <div className="flex items-center gap-2 px-3 py-1.5 bg-[#F3F4F6]">
+        <MapPin size={10} className="text-[#9E9EA0]" />
+        <span className="text-[11px] font-semibold text-[#6B7280] tracking-wide">{prefGroup.prefecture}</span>
+        <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full ${cfg.regionBadge}`}>
+          {prefGroup.bestQuality}
+        </span>
+      </div>
+      <div className="flex flex-col gap-1 p-1.5">
+        {prefGroup.points.map(point => (
+          <SpotRow key={point.id} point={point} />
+        ))}
+      </div>
+    </div>
+  );
+}
+
 interface Props {
   group: RegionGroupType;
   defaultOpen?: boolean;
@@ -119,7 +139,7 @@ export function RegionGroup({ group, defaultOpen = false }: Props) {
 
         {/* Spot count */}
         <span className="text-[12px] text-[#9E9EA0] font-medium shrink-0">
-          {group.points.length} スポット
+          {group.prefectures.reduce((s, p) => s + p.points.length, 0)} スポット
         </span>
 
         {/* Chevron */}
@@ -129,11 +149,11 @@ export function RegionGroup({ group, defaultOpen = false }: Props) {
         />
       </button>
 
-      {/* Spot list */}
+      {/* Spot list grouped by prefecture */}
       {isOpen && (
-        <div className="border-t border-[#E5E5E5] flex flex-col gap-1.5 p-2 bg-[#FAFAFA]">
-          {group.points.map(point => (
-            <SpotRow key={point.id} point={point} />
+        <div className="border-t border-[#E5E5E5] flex flex-col bg-[#FAFAFA]">
+          {group.prefectures.map(prefGroup => (
+            <PrefectureSection key={prefGroup.prefecture} prefGroup={prefGroup} />
           ))}
         </div>
       )}
