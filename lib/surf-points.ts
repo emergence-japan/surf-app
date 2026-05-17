@@ -600,17 +600,16 @@ export const surfPoints: SurfPoint[] = [
     name: '高知 平野海岸',
     lat: 32.9607181762383,
     lon: 132.99438672679085,
-    bestSwell: 'SW, SSW, S, WSW',
-    note: '黒潮町。双海の南東側に位置する砂浜。海岸線は北西〜南東に走り、太平洋に南西向きに開けたオープンビーチ。南西〜南うねりに素直に反応。足摺岬が南南西方向を遠方から若干遮蔽する。',
-    beachFacing: 'SW',
+    bestSwell: 'ESE, SE, SSE, E',
+    note: '黒潮町。双海の南側に位置する砂浜。海岸線は南南西〜北北東に走り、太平洋に東南東向きに開けたオープンビーチ。東〜南東うねりに素直に反応。',
+    beachFacing: 'ESE',
     tideStation: 'muroto',
     bayGeometry: {
-      // 海岸線は北西〜南東に走り、太平洋に南西向きに開いたオープンな海岸。
-      // 南南西遠方に足摺岬（約195°/38km）があるが遮蔽効果は小さい。
+      // 海岸線は南南西〜北北東（約23°）に走り、太平洋に東南東（113°）向きに開いたオープンな海岸。
       type: 'open',
       openingAngle: 210,
-      openingDir: 225,
-      openingDirStr: 'SW',
+      openingDir: 113,
+      openingDirStr: 'ESE',
       diffractionFactor: 0.92,
       convergenceFactor: 1.0,
       headlands: [
@@ -624,17 +623,16 @@ export const surfPoints: SurfPoint[] = [
     name: '高知 大方浮鞭',
     lat: 33.03428881101668,
     lon: 133.03222962660124,
-    bestSwell: 'SW, SSW, S, WSW',
-    note: '黒潮町大方。浮鞭海岸。海岸線は北西〜南東に走り、太平洋に南西向きに開けたオープンビーチ。南西〜南うねりに素直に反応。入野海岸と連続する砂浜で、コンスタントにサーフできる高知西部の人気ポイント。',
-    beachFacing: 'SW',
+    bestSwell: 'ESE, SE, SSE, E',
+    note: '黒潮町大方。浮鞭海岸。海岸線は南南西〜北北東に走り、太平洋に東南東向きに開けたオープンビーチ。東〜南東うねりに素直に反応。入野海岸と連続する砂浜で、コンスタントにサーフできる高知西部の人気ポイント。',
+    beachFacing: 'ESE',
     tideStation: 'muroto',
     bayGeometry: {
-      // 海岸線は北西〜南東に走り、太平洋に南西向きに開いたオープンな直線海岸。
-      // 南南西遠方に足摺岬（約197°/42km）があるが遮蔽効果は小さい。
+      // 海岸線は南南西〜北北東（約23°）に走り、太平洋に東南東（113°）向きに開いたオープンな直線海岸。
       type: 'open',
       openingAngle: 210,
-      openingDir: 225,
-      openingDirStr: 'SW',
+      openingDir: 113,
+      openingDirStr: 'ESE',
       diffractionFactor: 0.92,
       convergenceFactor: 1.0,
       headlands: [
@@ -648,16 +646,16 @@ export const surfPoints: SurfPoint[] = [
     name: '高知 入野海岸',
     lat: 33.03200282614476,
     lon: 133.0277639306864,
-    bestSwell: 'SW, SSW, S, WSW',
-    note: '黒潮町入野。入野松原に面した砂浜。海岸線は北西〜南東に走り、太平洋に南西向きに開けたオープンビーチ。大方浮鞭と連続する長大な砂浜の中央エリア。',
-    beachFacing: 'SW',
+    bestSwell: 'ESE, SE, SSE, E',
+    note: '黒潮町入野。入野松原に面した砂浜。海岸線は南南西〜北北東に走り、太平洋に東南東向きに開けたオープンビーチ。大方浮鞭と連続する長大な砂浜の中央エリア。',
+    beachFacing: 'ESE',
     tideStation: 'muroto',
     bayGeometry: {
-      // 海岸線は北西〜南東に走り、太平洋に南西向きに開いたオープンな海岸。
+      // 海岸線は南南西〜北北東（約23°）に走り、太平洋に東南東（113°）向きに開いたオープンな海岸。
       type: 'open',
       openingAngle: 210,
-      openingDir: 225,
-      openingDirStr: 'SW',
+      openingDir: 113,
+      openingDirStr: 'ESE',
       diffractionFactor: 0.92,
       convergenceFactor: 1.0,
       headlands: [
@@ -671,17 +669,16 @@ export const surfPoints: SurfPoint[] = [
     name: '高知 双海海岸',
     lat: 32.97220827207688,
     lon: 132.99979047204062,
-    bestSwell: 'SW, SSW, S, WSW',
-    note: '黒潮町双海。双海サーフビーチ。入野海岸の南東側に位置する砂浜。海岸線は北西〜南東に走り、太平洋に南西向きに開けたビーチ。南西〜南うねりに反応しやすい。',
-    beachFacing: 'SW',
+    bestSwell: 'ESE, SE, SSE, E',
+    note: '黒潮町双海。双海サーフビーチ。海岸線は南南西〜北北東に走り、太平洋に東南東向きに開けたビーチ。東〜南東うねりに反応しやすい。',
+    beachFacing: 'ESE',
     tideStation: 'muroto',
     bayGeometry: {
-      // 海岸線は北西〜南東に走り、太平洋に南西向きに開いたオープンな海岸。
-      // 南南西遠方に足摺岬（約194°/36km）があるが遮蔽効果は小さい。
+      // 海岸線は南南西〜北北東（約23°）に走り、太平洋に東南東（113°）向きに開いたオープンな海岸。
       type: 'open',
       openingAngle: 210,
-      openingDir: 225,
-      openingDirStr: 'SW',
+      openingDir: 113,
+      openingDirStr: 'ESE',
       diffractionFactor: 0.92,
       convergenceFactor: 1.0,
       headlands: [
