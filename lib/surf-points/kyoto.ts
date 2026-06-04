@@ -80,4 +80,32 @@ export const kyotoPoints: SurfPoint[] = [
       ],
     },
   },
+  {
+    id: 'point-32',
+    name: '京都 琴引浜',
+    lat: 35.6999,
+    lon: 135.0418,
+    bestSwell: 'N, NNW, NNE, NW',
+    note: '京丹後市網野町。鳴き砂で有名。日本海に面した北向きビーチ。北うねり全般に反応。',
+    beachFacing: 'N',
+    tideStation: 'maizuru',
+    bayGeometry: {
+      // 日本海に開いた北向きビーチ。北〜北西のうねりが入りやすい。
+      // 東に掛津鼻（太鼓浜）の岬と沖の岩礁があり北東うねりを部分遮蔽。
+      // 西の八丁浜方面の岬は遠く影響は軽微。正面の大きな島はない。
+      type: 'semi-enclosed',
+      openingAngle: 170,
+      openingDir: 350,
+      openingDirStr: 'N',
+      diffractionFactor: 0.85,
+      convergenceFactor: 1.0,
+      headlands: [
+        { bearing: 60,  distanceKm: 1.8, name: '掛津鼻' },
+        { bearing: 280, distanceKm: 3.0, name: '八丁浜西岬' },
+      ],
+      obstacles: [
+        { type: 'islet', bearing: 45, distanceKm: 2.0, name: '掛津沖岩礁' },
+      ],
+    },
+  },
 ];
