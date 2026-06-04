@@ -1,7 +1,35 @@
 import { describe, it, expect } from 'vitest';
-import { computeTideHeight, generateHourlyTides, TIDE_STATIONS } from '@/lib/tide-predictor';
+import {
+  computeTideHeight,
+  rawTideHeight,
+  generateHourlyTides,
+  TIDE_STATIONS,
+  type TideStationKey,
+} from '@/lib/tide-predictor';
 
 const FIXED_TIME = Date.UTC(2024, 5, 15, 6, 0, 0); // 2024-06-15 06:00 UTC
+
+/** 指定日（JST 00:00 始まり）の満潮・干潮を 1 分刻みで抽出する */
+function extractExtremes(
+  station: TideStationKey,
+  jstDateUTC: number
+): { type: 'high' | 'low'; minutes: number }[] {
+  const samples: number[] = [];
+  for (let m = 0; m <= 24 * 60; m++) {
+    samples.push(rawTideHeight(jstDateUTC + m * 60000, station));
+  }
+  const extremes: { type: 'high' | 'low'; minutes: number }[] = [];
+  for (let i = 1; i < samples.length - 1; i++) {
+    const a = samples[i - 1], b = samples[i], c = samples[i + 1];
+    if ((b > a && b >= c) || (b < a && b <= c)) {
+      extremes.push({ type: b > a ? 'high' : 'low', minutes: i });
+    }
+  }
+  return extremes;
+}
+
+/** "HH:MM" を 0 時からの分に変換 */
+const hm = (s: string) => Number(s.slice(0, 2)) * 60 + Number(s.slice(3, 5));
 
 describe('computeTideHeight', () => {
   it('数値を返す', () => {
@@ -58,13 +86,14 @@ describe('computeTideHeight', () => {
   });
 
   it('太平洋の局（御前崎）は潮差が大きい', () => {
-    // 太平洋側は潮差が大きい（通常 ±1m 以上）
-    const results = Array.from({ length: 24 }, (_, i) =>
+    // 太平洋側は日本海より潮差が大きい。小潮の日に当たると1日の潮差は小さく
+    // なるため、半月分（大潮を含む）の最大潮差で評価する。
+    const results = Array.from({ length: 15 * 24 }, (_, i) =>
       computeTideHeight(FIXED_TIME + i * 3600 * 1000, 'omaezaki')
     );
     const max = Math.max(...results);
     const min = Math.min(...results);
-    expect(max - min).toBeGreaterThan(0.5);
+    expect(max - min).toBeGreaterThan(0.8); // 大潮時は 1m 超
   });
 });
 
@@ -100,5 +129,33 @@ describe('generateHourlyTides', () => {
     const result = generateHourlyTides(FIXED_TIME, 1, 'komatsushima');
     expect(() => new Date(result[0].time)).not.toThrow();
     expect(new Date(result[0].time).getTime()).not.toBeNaN();
+  });
+});
+
+describe('気象庁公式予測との一致（室戸岬 2026-06-02）', () => {
+  // 気象庁公式予測: 満潮 06:05 / 19:55, 干潮 00:43 / 13:00（JST）
+  // JST 6/2 00:00 = UTC 6/1 15:00
+  const JST_2026_06_02 = Date.UTC(2026, 5, 2, -9, 0, 0);
+  const TOLERANCE_MIN = 20; // 満干時刻の許容誤差 [分]
+
+  const expected = [
+    { type: 'low' as const, time: '00:43' },
+    { type: 'high' as const, time: '06:05' },
+    { type: 'low' as const, time: '13:00' },
+    { type: 'high' as const, time: '19:55' },
+  ];
+
+  const extremes = extractExtremes('muroto', JST_2026_06_02);
+
+  it('満潮・干潮がちょうど4回検出される', () => {
+    expect(extremes).toHaveLength(4);
+  });
+
+  expected.forEach((exp, idx) => {
+    it(`${idx + 1}番目: ${exp.type === 'high' ? '満潮' : '干潮'} ${exp.time} ±${TOLERANCE_MIN}分`, () => {
+      const actual = extremes[idx];
+      expect(actual.type).toBe(exp.type);
+      expect(Math.abs(actual.minutes - hm(exp.time))).toBeLessThanOrEqual(TOLERANCE_MIN);
+    });
   });
 });
