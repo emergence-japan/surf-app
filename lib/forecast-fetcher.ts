@@ -44,12 +44,23 @@ function ensembleAvg(
   return a ?? b ?? fallback ?? null;
 }
 
+// 2 モデルのスカラー値を平均する（片方欠損なら他方、両方欠損なら null）
+// 風速など、線形に平均してよい量に使う。風向（角度）には使わない。
+function avgPair(a: number | null | undefined, b: number | null | undefined): number | null {
+  const av = a ?? null;
+  const bv = b ?? null;
+  if (av !== null && bv !== null) return Math.round(((av + bv) / 2) * 100) / 100;
+  return av ?? bv ?? null;
+}
+
 async function fetchExternalData(point: SurfPoint) {
   const windUrl = `https://api.open-meteo.com/v1/forecast?latitude=${point.lat}&longitude=${point.lon}`
     + `&current=wind_speed_10m,wind_direction_10m,visibility,cloud_cover`
     + `&hourly=wind_speed_10m,wind_direction_10m`
     + `&daily=wind_speed_10m_max,wind_direction_10m_dominant,weather_code`
-    + `&models=best_match`
+    // 波と同様に風も2モデルをアンサンブル平均して外れを抑える
+    // （日本周辺の高解像度 JMA MSM と全球 GFS）
+    + `&models=jma_msm,gfs_seamless`
     + `&timezone=Asia%2FTokyo`;
 
   const waveUrl = `https://marine-api.open-meteo.com/v1/marine?latitude=${point.lat}&longitude=${point.lon}`
@@ -85,16 +96,25 @@ function resolveCurrentConditions(windRes: any, waveRes: any, currentIndex: numb
   let curWaveDir = waveRes.current?.wave_direction ?? null;
   if (curWaveDir === null && waveRes.hourly.wave_direction_gwam) curWaveDir = waveRes.hourly.wave_direction_gwam[currentIndex] ?? null;
 
-  const curWindSpd = windRes.current?.wind_speed_10m ?? null;
-  const curWindDir = windRes.current?.wind_direction_10m ?? null;
+  // 注: open-meteo の current は複数モデル指定でもサフィックスなしの単一値
+  // （best_match 相当）しか返さない。current は単一値で扱う。
+  // hourly / daily は 2 モデルを平均する（buildHourlyData / buildDailyData 参照）。
+  const cw = windRes.current ?? {};
+  const curWindSpd = cw.wind_speed_10m ?? null;
+  const curWindDir = cw.wind_direction_10m ?? null;
 
-  let curTemp = 0;
-  if (waveRes.hourly.sea_surface_temperature_marine_best_match) {
-    curTemp = waveRes.hourly.sea_surface_temperature_marine_best_match[currentIndex] ?? 0;
-  } else if (waveRes.hourly.sea_surface_temperature_gwam) {
-    curTemp = waveRes.hourly.sea_surface_temperature_gwam[currentIndex] ?? 0;
-  } else if (waveRes.hourly.sea_surface_temperature) {
-    curTemp = waveRes.hourly.sea_surface_temperature[currentIndex] ?? 0;
+  // 水温: 欠損時は 0℃ ではなく null（不明）にする。0℃ を実在値として表示しない。
+  let curTemp: number | null = null;
+  const sstSources = [
+    waveRes.hourly.sea_surface_temperature_marine_best_match,
+    waveRes.hourly.sea_surface_temperature_gwam,
+    waveRes.hourly.sea_surface_temperature,
+  ];
+  for (const src of sstSources) {
+    if (src && src[currentIndex] !== null && src[currentIndex] !== undefined) {
+      curTemp = src[currentIndex];
+      break;
+    }
   }
 
   const curVisibility = windRes.current?.visibility ?? null;
@@ -144,7 +164,8 @@ function buildHourlyData(waveRes: any, windRes: any, point: SurfPoint) {
   const hWaveHeight = ensembleAvg(waveRes.hourly.wave_height_marine_best_match, waveRes.hourly.wave_height_gwam, waveRes.hourly.wave_height);
   const hWavePeriod = ensembleAvg(waveRes.hourly.wave_period_marine_best_match, waveRes.hourly.wave_period_gwam, waveRes.hourly.wave_period);
   const hWaveDir: (number | null)[] | null = waveRes.hourly.wave_direction_marine_best_match ?? waveRes.hourly.wave_direction_gwam ?? waveRes.hourly.wave_direction ?? null;
-  const hWindSpeed: (number | null)[] | null = windRes.hourly?.wind_speed_10m_jma_msm ?? windRes.hourly?.wind_speed_10m_gfs_seamless ?? windRes.hourly?.wind_speed_10m ?? null;
+  // 風速は 2 モデル平均、風向は JMA MSM 優先（角度は平均できない）
+  const hWindSpeed: (number | null)[] | null = ensembleAvg(windRes.hourly?.wind_speed_10m_jma_msm, windRes.hourly?.wind_speed_10m_gfs_seamless, windRes.hourly?.wind_speed_10m);
   const hWindDir: (number | null)[] | null = windRes.hourly?.wind_direction_10m_jma_msm ?? windRes.hourly?.wind_direction_10m_gfs_seamless ?? windRes.hourly?.wind_direction_10m ?? null;
   const hSwellHeight = ensembleAvg(waveRes.hourly.swell_wave_height_marine_best_match, waveRes.hourly.swell_wave_height_gwam, waveRes.hourly.swell_wave_height);
   const hSwellDir: (number | null)[] | null = waveRes.hourly.swell_wave_direction_marine_best_match ?? waveRes.hourly.swell_wave_direction_gwam ?? waveRes.hourly.swell_wave_direction ?? null;
@@ -200,13 +221,17 @@ function buildDailyData(waveRes: any, windRes: any, point: SurfPoint) {
   return waveRes.daily.time.map((time: string, i: number) => {
     const dWaveHeightMax = waveRes.daily.wave_height_max_best_match?.[i] ?? waveRes.daily.wave_height_max_gwam?.[i] ?? waveRes.daily.wave_height_max?.[i] ?? 0;
     const dWaveDirDom    = waveRes.daily.wave_direction_dominant_best_match?.[i] ?? waveRes.daily.wave_direction_dominant_gwam?.[i] ?? waveRes.daily.wave_direction_dominant?.[i] ?? 0;
-    const dWindSpdMax    = windRes.daily?.wind_speed_10m_max?.[i] ?? 0;
-    const dWindDirDom    = windRes.daily?.wind_direction_10m_dominant?.[i] ?? 0;
-    const dWeatherCode   = windRes.daily?.weather_code?.[i] ?? 0;
+    // 風は 2 モデル: 最大風速は平均、卓越風向と天気コードは JMA MSM 優先
+    const wd = windRes.daily ?? {};
+    const dWindSpdMax    = avgPair(wd.wind_speed_10m_max_jma_msm?.[i], wd.wind_speed_10m_max_gfs_seamless?.[i]) ?? wd.wind_speed_10m_max?.[i] ?? 0;
+    const dWindDirDom    = wd.wind_direction_10m_dominant_jma_msm?.[i] ?? wd.wind_direction_10m_dominant_gfs_seamless?.[i] ?? wd.wind_direction_10m_dominant?.[i] ?? 0;
+    const dWeatherCode   = wd.weather_code_jma_msm?.[i] ?? wd.weather_code_gfs_seamless?.[i] ?? wd.weather_code?.[i] ?? 0;
 
     const noonIndex = i * 24 + 12;
     const hourlySST = waveRes.hourly.sea_surface_temperature_marine_best_match ?? waveRes.hourly.sea_surface_temperature_gwam ?? waveRes.hourly.sea_surface_temperature;
-    const dSST = hourlySST?.length > 0 ? (hourlySST[noonIndex] ?? hourlySST[0] ?? 0) : 0;
+    // 水温: 欠損時は null（不明）。0℃ を実在値として埋めない。
+    const dSSTRaw = hourlySST?.length > 0 ? (hourlySST[noonIndex] ?? hourlySST[0] ?? null) : null;
+    const dSST: number | null = dSSTRaw ?? null;
 
     // 日次APIには周期データがないため、その日の正午のhourly周期を代表値として使用
     const hourlySwellPeriod = waveRes.hourly.swell_wave_period_marine_best_match ?? waveRes.hourly.swell_wave_period_gwam ?? waveRes.hourly.swell_wave_period;

@@ -14,7 +14,7 @@ interface WaveCardProps {
     windSpeed: number;
     windDirection: string;
     quality: 'S' | 'A' | 'B' | 'C' | 'D';
-    temperature: number;
+    temperature: number | null;
   };
   isExpanded: boolean;
   onExpand: () => void;
@@ -113,7 +113,7 @@ export default function WaveCard({ wave, isExpanded, onExpand }: WaveCardProps) 
           </div>
           <div className="space-y-1">
             <p className="text-[9px] font-bold uppercase tracking-widest text-muted-foreground">水温</p>
-            <p className="text-sm font-medium">{wave.temperature}°C</p>
+            <p className="text-sm font-medium">{wave.temperature !== null ? `${wave.temperature.toFixed(1)}°C` : '—'}</p>
           </div>
         </div>
       </div>

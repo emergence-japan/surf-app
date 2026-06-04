@@ -13,7 +13,7 @@ export interface SurfPointSummary {
     period?: number;
     windSpeed?: number;
     windDirection: string;
-    temperature: number;
+    temperature: number | null; // 水温 [℃]。データ欠損時は null（不明）
     quality: QualityLevel;
 }
 
@@ -43,8 +43,8 @@ export interface DailyForecastData {
     waveLabel: string;
     windSpeedMax: number;
     windDir: string;
-    temperatureMax: number;
-    temperatureMin: number;
+    temperatureMax: number | null; // 水温 [℃]。データ欠損時は null（不明）
+    temperatureMin: number | null;
     weatherCode: number;
     quality: QualityLevel;
 }

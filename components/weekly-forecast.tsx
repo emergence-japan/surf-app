@@ -11,8 +11,8 @@ interface DailyData {
   waveLabel: string;
   windSpeedMax: number;
   windDir: string;
-  temperatureMax: number;
-  temperatureMin: number;
+  temperatureMax: number | null;
+  temperatureMin: number | null;
   weatherCode: number;
   quality: 'S' | 'A' | 'B' | 'C' | 'D';
 }

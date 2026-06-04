@@ -75,7 +75,7 @@ function CompassCard({ label, dir, deg, color }: { label: string; dir: string; d
 interface WaveCardData {
   id: string; beach: string; height: string; heightValue: number;
   period: number; windSpeed: number; windDirection: string;
-  quality: QualityLevel; time: string; temperature: number;
+  quality: QualityLevel; time: string; temperature: number | null;
 }
 
 export default function PointDetail() {
@@ -106,7 +106,7 @@ export default function PointDetail() {
         windDirection: h.windDir || '-',
         quality: h.quality || 'C',
         time: h.time ? new Date(h.time).toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' }) : '--:--',
-        temperature: point.temperature ?? 0,
+        temperature: point.temperature ?? null,
       }));
   }, []);
 
