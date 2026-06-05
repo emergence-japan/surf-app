@@ -68,6 +68,7 @@ export interface SurfPointDetail extends SurfPointSummary {
     beachFacing: string;
     breakProfile?: BreakProfile;
     qualityFactors?: QualityFactor[]; // 現在の評価の内訳（なぜこの評価か）
+    imageUrl?: string;                // ヒーロー写真URL（未指定ならデフォルト）
     visibility?: number;
     cloudCover?: number;
     conditionSummary: string;

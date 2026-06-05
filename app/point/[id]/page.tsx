@@ -26,6 +26,9 @@ const dirToDeg: Record<string, number> = {
   S:180,SSW:202.5,SW:225,WSW:247.5,W:270,WNW:292.5,NW:315,NNW:337.5
 };
 
+// スポット固有写真が未設定の場合のフォールバック画像
+const DEFAULT_HERO_IMAGE = 'https://images.unsplash.com/photo-1505118380757-91f5f5632de0?auto=format&fit=crop&q=80&w=1200';
+
 function StatRow({ icon, label, value, sub }: { icon: React.ReactNode; label: string; value: string; sub?: string }) {
   return (
     <div className="flex items-center justify-between py-3 border-b border-[#E5E5E5] last:border-0">
@@ -249,7 +252,7 @@ export default function PointDetail() {
       {/* ── Hero banner with photo ── */}
       <div className="relative w-full overflow-hidden" style={{ height: 'clamp(180px, 40vw, 260px)' }}>
         <img
-          src="https://images.unsplash.com/photo-1505118380757-91f5f5632de0?auto=format&fit=crop&q=80&w=1200"
+          src={target.imageUrl ?? DEFAULT_HERO_IMAGE}
           alt={spotName}
           className="absolute inset-0 w-full h-full object-cover"
         />

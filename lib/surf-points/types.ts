@@ -44,5 +44,6 @@ export interface SurfPoint {
   tideStation: TideStationKey;
   tidePreference?: TidePreference;
   breakProfile?: BreakProfile;
+  imageUrl?: string;         // ヒーロー写真。未指定ならデフォルト画像にフォールバック
   bayGeometry?: BayGeometry; // fetch-coastal-geometry.ts で自動取得・確認済みの値
 }

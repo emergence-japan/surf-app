@@ -321,6 +321,7 @@ export async function fetchPointForecast(point: SurfPoint): Promise<SurfPointDet
     beachFacing: point.beachFacing,
     breakProfile: point.breakProfile,
     qualityFactors: cur.qualityFactors,
+    imageUrl: point.imageUrl,
     temperature: cur.curTemp,
     visibility: cur.curVisibility,
     cloudCover: cur.curCloudCover,
