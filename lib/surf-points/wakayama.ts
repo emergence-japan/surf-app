@@ -10,7 +10,6 @@ export const wakayamaPoints: SurfPoint[] = [
     note: '大阪湾内、強い南西〜南が必要。遠浅で上げ潮はワイド/ダンパー気味になりやすい。',
     beachFacing: 'SSW',
     tideStation: 'osaka',
-    imageUrl: 'https://images.unsplash.com/photo-1502933691298-84fc14542831?auto=format&fit=crop&q=80&w=1200',
     tidePreference: {
       falling: 1,
       low: 0,
