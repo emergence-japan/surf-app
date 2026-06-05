@@ -254,6 +254,18 @@ export default function PointDetail() {
           className="absolute inset-0 w-full h-full object-cover"
         />
         <div className="absolute inset-0 bg-gradient-to-t from-[#0d1b2a]/80 via-[#0d1b2a]/30 to-transparent" />
+
+        {/* 戻るボタン: ヒーロー左上にオーバーレイ */}
+        <div className="absolute top-0 left-0 right-0 px-4 md:px-6 pt-4 max-w-2xl mx-auto">
+          <Link
+            href="/"
+            aria-label="一覧に戻る"
+            className="inline-flex items-center justify-center w-10 h-10 rounded-full bg-black/30 backdrop-blur-md border border-white/20 text-white hover:bg-black/50 active:scale-95 transition-all duration-150"
+          >
+            <ArrowLeft size={18} />
+          </Link>
+        </div>
+
         <div className="absolute bottom-0 left-0 right-0 px-4 md:px-6 pb-5 max-w-2xl mx-auto">
           <p className="text-[11px] text-white/60 font-medium mb-1">{prefecture}</p>
           <div className="flex items-end justify-between gap-3">
@@ -287,12 +299,6 @@ export default function PointDetail() {
       </div>
 
       <div className="max-w-2xl mx-auto px-4 md:px-6 py-6">
-
-        {/* Back */}
-        <Link href="/" className="inline-flex items-center gap-1.5 text-[12px] font-medium text-[#9E9EA0] hover:text-[#06b6d4] transition-colors mb-6">
-          <ArrowLeft size={14} />
-          一覧に戻る
-        </Link>
 
         {/* ── Primary stats ── */}
         <div className="rounded-xl border border-[#E5E5E5] overflow-hidden mb-4">
