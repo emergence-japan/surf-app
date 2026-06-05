@@ -41,10 +41,10 @@ const nextConfig = {
             value: [
               "default-src 'self'",
               "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://va.vercel-scripts.com",
-              "style-src 'self' 'unsafe-inline'",
-              "connect-src 'self' https://api.open-meteo.com https://marine-api.open-meteo.com https://vitals.vercel-insights.com",
+              "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
+              "connect-src 'self' https://api.open-meteo.com https://marine-api.open-meteo.com https://vitals.vercel-insights.com https://krzbwnqqozirnrlfwabk.supabase.co wss://krzbwnqqozirnrlfwabk.supabase.co",
               "img-src 'self' data: blob: https://images.unsplash.com",
-              "font-src 'self'",
+              "font-src 'self' https://fonts.gstatic.com",
               "frame-ancestors 'none'",
             ].join('; '),
           },

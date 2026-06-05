@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { updateSession } from '@/lib/supabase/middleware';
 
 // レート制限設定
 const WINDOW_MS = 60_000;  // 1分間のウィンドウ
@@ -21,7 +22,17 @@ function getClientIp(req: NextRequest): string {
   );
 }
 
-export function middleware(request: NextRequest) {
+export async function middleware(request: NextRequest) {
+  // /api/* はレート制限のみ（セッション更新は不要）。
+  // それ以外のページは Supabase セッションを更新する。
+  if (request.nextUrl.pathname.startsWith('/api/')) {
+    return rateLimit(request);
+  }
+  return updateSession(request);
+}
+
+// IP ベースのレート制限（/api/* 専用）。
+function rateLimit(request: NextRequest): NextResponse {
   const ip = getClientIp(request);
   const now = Date.now();
 
@@ -66,7 +77,10 @@ function addRateLimitHeaders(
   return res;
 }
 
-// /api/* のみにレート制限を適用
+// ページ全般（セッション更新）と /api/*（レート制限）の両方で実行する。
+// 静的アセット・画像・favicon は除外して無駄な実行を避ける。
 export const config = {
-  matcher: '/api/:path*',
+  matcher: [
+    '/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico)$).*)',
+  ],
 };

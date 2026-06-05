@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { Menu, X } from 'lucide-react';
 import Link from 'next/link';
 import { useBoardType } from '@/context/board-type-context';
+import AuthStatus from '@/components/auth/auth-status';
 
 function SwellLogo() {
   return (
@@ -102,6 +103,7 @@ export default function Header() {
               className="text-[13px] font-medium text-[#707072] hover:text-[#06b6d4] px-2 py-2 rounded-lg hover:bg-[#F5F5F5] transition-colors">
               アラート設定
             </Link>
+            <AuthStatus onNavigate={() => setIsMenuOpen(false)} />
           </div>
         )}
       </div>
