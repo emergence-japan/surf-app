@@ -6,6 +6,7 @@ import {
   calculateEffectiveHeight,
   calculateBayEffectiveHeight,
   analyzeSwellComponents,
+  applyBreakProfileHeightFactor,
   getWaveBaseScore,
   getWindEffect,
   calculateQuality,
@@ -135,21 +136,22 @@ function resolveCurrentConditions(windRes: any, waveRes: any, currentIndex: numb
     ? analyzeSwellComponents({ swellHeight: curSwellHeight, swellDir: curSwellDir, swellPeriod: curSwellPeriod, windWaveHeight: curWindWaveHeight, windWaveDir: curWindWaveDir, windWavePeriod: curWindWavePeriod, beachFacing: point.beachFacing, bayGeometry: point.bayGeometry })
     : null;
 
-  const effectiveHeight = swellAnalysis
+  const rawEffectiveHeight = swellAnalysis
     ? swellAnalysis.combinedEffectiveHeight
     : (point.bayGeometry
         ? calculateBayEffectiveHeight(curWave, waveDirStr, point.beachFacing, waveRes.current?.wave_period ?? null, point.bayGeometry)
         : calculateEffectiveHeight(curWave, waveDirStr, point.beachFacing, waveRes.current?.wave_period));
 
-  const waveBase = getWaveBaseScore(effectiveHeight);
   const curPeriod = swellAnalysis ? swellAnalysis.dominantPeriod : (waveRes.current?.wave_period ?? 0);
+  const effectiveHeight = applyBreakProfileHeightFactor(rawEffectiveHeight, curPeriod, point.breakProfile);
+  const waveBase = getWaveBaseScore(effectiveHeight);
   const dominantDirStr = swellAnalysis ? swellAnalysis.dominantDirStr : waveDirStr;
   const swellDirStr = swellAnalysis ? degreesToDir(curSwellDir) : waveDirStr;
   const swellPeriod = curSwellPeriod ?? curPeriod;
   const isBestSwell = checkBestSwell(point.bestSwell, swellDirStr, swellPeriod) && waveBase.score >= 3 && windSpeedMs <= 5;
   const windEffect = getWindEffect(point.beachFacing, windDirStr, windSpeedMs);
-  const curTideScoreEffect = getTideScoreEffect(computeTidePhase(Date.now(), point.tideStation));
-  const finalQuality = calculateQuality(waveBase.score, windEffect, isBestSwell, effectiveHeight, curPeriod, swellAnalysis?.isSwellDominant, curTideScoreEffect);
+  const curTideScoreEffect = getTideScoreEffect(computeTidePhase(Date.now(), point.tideStation), point.tidePreference);
+  const finalQuality = calculateQuality(waveBase.score, windEffect, isBestSwell, effectiveHeight, curPeriod, swellAnalysis?.isSwellDominant, curTideScoreEffect, 'short', point.breakProfile);
 
   return {
     curWave, curWaveDir, curTemp, curVisibility, curCloudCover,
@@ -186,15 +188,16 @@ function buildHourlyData(waveRes: any, windRes: any, point: SurfPoint) {
       ? analyzeSwellComponents({ swellHeight: hSwellHeight?.[i] ?? null, swellDir: hSwellDir?.[i] ?? null, swellPeriod: hSwellPeriod?.[i] ?? null, windWaveHeight: hWindWaveHeight?.[i] ?? null, windWaveDir: hWindWaveDir?.[i] ?? null, windWavePeriod: hWindWavePeriod?.[i] ?? null, beachFacing: point.beachFacing, bayGeometry: point.bayGeometry })
       : null;
 
-    const hEffectiveHeight = hSwellAnalysis ? hSwellAnalysis.combinedEffectiveHeight : (point.bayGeometry ? calculateBayEffectiveHeight(hRawHeight, hWDirStr, point.beachFacing, hWavePeriod?.[i] ?? null, point.bayGeometry) : calculateEffectiveHeight(hRawHeight, hWDirStr, point.beachFacing, hWavePeriod?.[i]));
-    const hWBase = getWaveBaseScore(hEffectiveHeight);
     const hPeriod = hSwellAnalysis ? hSwellAnalysis.dominantPeriod : (hWavePeriod?.[i] ?? 0);
+    const hRawEffectiveHeight = hSwellAnalysis ? hSwellAnalysis.combinedEffectiveHeight : (point.bayGeometry ? calculateBayEffectiveHeight(hRawHeight, hWDirStr, point.beachFacing, hWavePeriod?.[i] ?? null, point.bayGeometry) : calculateEffectiveHeight(hRawHeight, hWDirStr, point.beachFacing, hWavePeriod?.[i]));
+    const hEffectiveHeight = applyBreakProfileHeightFactor(hRawEffectiveHeight, hPeriod, point.breakProfile);
+    const hWBase = getWaveBaseScore(hEffectiveHeight);
     const hSwellDirStr = hSwellAnalysis ? degreesToDir(hSwellDir?.[i]) : hWDirStr;
     const hSwellPer = hSwellPeriod?.[i] ?? hPeriod;
     const hIsBestSwell = checkBestSwell(point.bestSwell, hSwellDirStr, hSwellPer) && hWBase.score >= 3 && hWindSpdMs <= 5;
     const hWindEffect = getWindEffect(point.beachFacing, hWindDirStr, hWindSpdMs);
     const tMs = new Date(time).getTime();
-    const hTideScoreEffect = getTideScoreEffect(computeTidePhase(tMs, point.tideStation));
+    const hTideScoreEffect = getTideScoreEffect(computeTidePhase(tMs, point.tideStation), point.tidePreference);
 
     return {
       time,
@@ -205,7 +208,7 @@ function buildHourlyData(waveRes: any, windRes: any, point: SurfPoint) {
       period: hPeriod,
       windSpeed: hWindSpdMs,
       windDir: hWindDirStr,
-      quality: calculateQuality(hWBase.score, hWindEffect, hIsBestSwell, hEffectiveHeight, hPeriod, hSwellAnalysis?.isSwellDominant, hTideScoreEffect),
+      quality: calculateQuality(hWBase.score, hWindEffect, hIsBestSwell, hEffectiveHeight, hPeriod, hSwellAnalysis?.isSwellDominant, hTideScoreEffect, 'short', point.breakProfile),
       tide: computeTideHeight(tMs, point.tideStation),
       swellHeight: hSwellAnalysis?.effectiveSwellHeight,
       windWaveHeight: hSwellAnalysis?.effectiveWindWaveHeight,
@@ -239,9 +242,10 @@ function buildDailyData(waveRes: any, windRes: any, point: SurfPoint) {
     const dPeriod = hourlySwellPeriod?.[noonIndex] ?? hourlyWavePeriod?.[noonIndex] ?? 0;
 
     const dWDirStr = degreesToDir(dWaveDirDom);
-    const dEffectiveHeight = point.bayGeometry
+    const dRawEffectiveHeight = point.bayGeometry
       ? calculateBayEffectiveHeight(dWaveHeightMax, dWDirStr, point.beachFacing, null, point.bayGeometry)
       : calculateEffectiveHeight(dWaveHeightMax, dWDirStr, point.beachFacing);
+    const dEffectiveHeight = applyBreakProfileHeightFactor(dRawEffectiveHeight, dPeriod, point.breakProfile);
     const dWBase = getWaveBaseScore(dEffectiveHeight);
     const dWindDirStr = degreesToDir(dWindDirDom);
     const dIsBestSwell = checkBestSwell(point.bestSwell, dWDirStr, dPeriod);
@@ -257,7 +261,7 @@ function buildDailyData(waveRes: any, windRes: any, point: SurfPoint) {
       temperatureMax: dSST,
       temperatureMin: dSST,
       weatherCode: dWeatherCode,
-      quality: calculateQuality(dWBase.score, dWindEffect, dIsBestSwell, dEffectiveHeight, dPeriod),
+      quality: calculateQuality(dWBase.score, dWindEffect, dIsBestSwell, dEffectiveHeight, dPeriod, undefined, undefined, 'short', point.breakProfile),
     };
   });
 }
@@ -303,6 +307,7 @@ export async function fetchPointForecast(point: SurfPoint): Promise<SurfPointDet
     waveDirectionDeg: cur.curWaveDir ?? 0,
     isBestSwell: cur.isBestSwell,
     beachFacing: point.beachFacing,
+    breakProfile: point.breakProfile,
     temperature: cur.curTemp,
     visibility: cur.curVisibility,
     cloudCover: cur.curCloudCover,

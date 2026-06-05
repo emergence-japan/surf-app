@@ -250,6 +250,8 @@ export function computeTideHeight(timeMs: number, stationKey: TideStationKey): n
 
 export type TidePhase = 'rising' | 'falling' | 'high' | 'low';
 
+export type TidePreference = Partial<Record<TidePhase, number>>;
+
 /**
  * 潮汐フェーズと±30分の変化量から上げ/下げ/満潮/干潮を判定する
  * - 変化量が ±0.03m/h 未満 → 満潮または干潮（転換点）
@@ -281,7 +283,9 @@ export function computeTidePhase(timeMs: number, stationKey: TideStationKey): Ti
  * - 上げ潮: 0
  * - 急激な満潮: 0（カレントが強くなりやすいが判定が難しいため中立）
  */
-export function getTideScoreEffect(phase: TidePhase): number {
+export function getTideScoreEffect(phase: TidePhase, preference?: TidePreference): number {
+  if (preference && preference[phase] !== undefined) return preference[phase]!;
+
   if (phase === 'low') return 1;    // 干潮: サンドバー・リーフが機能しやすい
   if (phase === 'falling') return 1; // 下げ潮: 波が掘れやすい
   return 0;

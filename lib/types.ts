@@ -1,4 +1,5 @@
 // Shared TypeScript type definitions for the Surf Forecast App
+import type { BreakProfile } from './surf-points';
 
 export type QualityLevel = 'S' | 'A' | 'B' | 'C' | 'D';
 
@@ -58,6 +59,7 @@ export interface SurfPointDetail extends SurfPointSummary {
     waveDirectionDeg: number;
     isBestSwell: boolean;
     beachFacing: string;
+    breakProfile?: BreakProfile;
     visibility?: number;
     cloudCover?: number;
     conditionSummary: string;

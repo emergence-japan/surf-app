@@ -1,5 +1,5 @@
 import type { BoardType, QualityLevel } from './types';
-import type { BayGeometry } from './surf-points';
+import type { BayGeometry, BreakProfile } from './surf-points';
 
 // 16方位の定数
 export const DIRS = ['N', 'NNE', 'NE', 'ENE', 'E', 'ESE', 'SE', 'SSE', 'S', 'SSW', 'SW', 'WSW', 'W', 'WNW', 'NW', 'NNW'] as const;
@@ -270,7 +270,8 @@ export function calculateQuality(
   period: number,
   isSwellDominant?: boolean,  // スウェル成分が風波より支配的か
   tideScoreEffect?: number,   // 潮汐フェーズによる補正スコア
-  boardType: BoardType = 'short'
+  boardType: BoardType = 'short',
+  breakProfile?: BreakProfile
 ): QualityLevel {
   // フラットは方向・風に関わらず問答無用でD
   if (effectiveHeight < 0.2) return 'D';
@@ -282,6 +283,19 @@ export function calculateQuality(
   const shortPeriodThreshold = boardType === 'long' ? 5 : 6;
   const isShortPeriod = period > 0 && period <= shortPeriodThreshold;
   if (isShortPeriod || isSwellDominant === false) finalScore -= 1;
+
+  if (
+    breakProfile?.idealPeriodMin !== undefined
+    && breakProfile.shortPeriodPenalty !== undefined
+    && period > 0
+    && period < breakProfile.idealPeriodMin
+  ) {
+    finalScore -= breakProfile.shortPeriodPenalty;
+  }
+
+  if (isSwellDominant === false && breakProfile?.windWavePenalty !== undefined) {
+    finalScore -= breakProfile.windWavePenalty;
+  }
 
   // 潮汐フェーズ補正（プラス・マイナスとも反映）
   if (tideScoreEffect !== undefined) finalScore += tideScoreEffect;
@@ -348,6 +362,24 @@ export function analyzeSwellComponents(params: {
     dominantDirStr: isSwellDominant ? swellDirStr : windWaveDirStr,
     isSwellDominant,
   };
+}
+
+export function applyBreakProfileHeightFactor(
+  effectiveHeight: number,
+  period: number,
+  breakProfile?: BreakProfile
+): number {
+  if (
+    !breakProfile
+    || breakProfile.shortPeriodHeightFactor === undefined
+    || breakProfile.idealPeriodMin === undefined
+    || period <= 0
+    || period >= breakProfile.idealPeriodMin
+  ) {
+    return effectiveHeight;
+  }
+
+  return Math.round(effectiveHeight * breakProfile.shortPeriodHeightFactor * 100) / 100;
 }
 
 // ベストスウェル判定

@@ -18,6 +18,7 @@ function dirDiff(beachFacing: string, windDirStr: string): number {
 interface RecomputeContext {
   beachFacing: string;
   isBestSwell: boolean;
+  breakProfile?: SurfPointDetail['breakProfile'];
 }
 
 export function recomputeQualityForBoard(
@@ -39,14 +40,15 @@ export function recomputeQualityForBoard(
     period,
     isSwellDominant,
     undefined, // tideは前提から無視
-    boardType
+    boardType,
+    ctx.breakProfile
   );
   return { quality, label: base.label, range: base.range };
 }
 
 // 詳細データ全体をボード切替後の値で書き換える
 export function applyBoardType(point: SurfPointDetail, boardType: BoardType): SurfPointDetail {
-  const ctx = { beachFacing: point.beachFacing, isBestSwell: point.isBestSwell };
+  const ctx = { beachFacing: point.beachFacing, isBestSwell: point.isBestSwell, breakProfile: point.breakProfile };
   const cur = recomputeQualityForBoard(
     point.heightMeters,
     point.windDirection,

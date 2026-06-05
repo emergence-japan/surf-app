@@ -7,9 +7,24 @@ export const miePoints: SurfPoint[] = [
     lat: 34.354,
     lon: 136.885,
     bestSwell: 'E, ESE, SE, SSE, S',
-    note: '東〜南うねりメイン',
+    note: '東〜南うねりメイン。遠浅で厚め・メローな波が多い。',
     beachFacing: 'ESE',
     tideStation: 'toba',
+    tidePreference: {
+      falling: 0.5,
+      low: 0.5,
+      rising: 0,
+      high: -0.5,
+    },
+    breakProfile: {
+      bottom: 'shallow_sand',
+      exposure: 'open_ocean',
+      dumperRisk: 'low',
+      mellowBias: 'high',
+      idealPeriodMin: 7,
+      shortPeriodPenalty: 0,
+      windWavePenalty: 0,
+    },
     bayGeometry: {
       // 志摩半島外海側、太平洋に面した南北に走るオープンビーチ（約3km）。
       // 北側に安乗埼(N 約4km)、南側に大王崎(SSE 約8km)があり広く開ける。

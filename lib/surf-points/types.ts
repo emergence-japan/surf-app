@@ -1,4 +1,4 @@
-import type { TideStationKey } from '../tide-predictor';
+import type { TidePreference, TideStationKey } from '../tide-predictor';
 
 export interface Obstacle {
   type: 'island' | 'islet' | 'reef';
@@ -22,6 +22,17 @@ export interface BayGeometry {
   obstacles?: Obstacle[];    // 沖の島・岩礁（スウェルを部分的に遮蔽）
 }
 
+export interface BreakProfile {
+  bottom: 'shallow_sand' | 'sand' | 'deep_sand' | 'reef' | 'river_mouth';
+  exposure: 'sheltered_bay' | 'semi_open' | 'open_ocean';
+  dumperRisk: 'low' | 'medium' | 'high';
+  mellowBias: 'low' | 'medium' | 'high';
+  idealPeriodMin?: number;
+  shortPeriodPenalty?: number;
+  windWavePenalty?: number;
+  shortPeriodHeightFactor?: number;
+}
+
 export interface SurfPoint {
   id: string;
   name: string;
@@ -31,5 +42,7 @@ export interface SurfPoint {
   note?: string;
   beachFacing: string;
   tideStation: TideStationKey;
+  tidePreference?: TidePreference;
+  breakProfile?: BreakProfile;
   bayGeometry?: BayGeometry; // fetch-coastal-geometry.ts で自動取得・確認済みの値
 }

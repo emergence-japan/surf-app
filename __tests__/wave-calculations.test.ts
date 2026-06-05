@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import {
   degreesToDir,
   calculateEffectiveHeight,
+  applyBreakProfileHeightFactor,
   getWaveBaseScore,
   getWindEffect,
   calculateQuality,
@@ -88,6 +89,34 @@ describe('calculateEffectiveHeight', () => {
   });
 });
 
+describe('applyBreakProfileHeightFactor', () => {
+  it('短周期の湾内・河口ポイントでは体感サイズ用の有効波高を下げる', () => {
+    const adjusted = applyBreakProfileHeightFactor(0.84, 5.5, {
+      bottom: 'river_mouth',
+      exposure: 'sheltered_bay',
+      dumperRisk: 'medium',
+      mellowBias: 'low',
+      idealPeriodMin: 8,
+      shortPeriodHeightFactor: 0.45,
+    });
+
+    expect(adjusted).toBeCloseTo(0.38, 2);
+    expect(getWaveBaseScore(adjusted).label).toBe('スネ〜ヒザ');
+  });
+
+  it('長周期または補正なしのポイントでは波高を変えない', () => {
+    expect(applyBreakProfileHeightFactor(0.84, 8, undefined)).toBe(0.84);
+    expect(applyBreakProfileHeightFactor(0.84, 9, {
+      bottom: 'river_mouth',
+      exposure: 'sheltered_bay',
+      dumperRisk: 'medium',
+      mellowBias: 'low',
+      idealPeriodMin: 8,
+      shortPeriodHeightFactor: 0.45,
+    })).toBe(0.84);
+  });
+});
+
 describe('getWaveBaseScore', () => {
   it('フラット（0.1m）は score=1', () => {
     const result = getWaveBaseScore(0.1);
@@ -166,6 +195,22 @@ describe('calculateQuality', () => {
     const withoutPenalty = calculateQuality(4, 0, false, 1.0, 10);
     expect(withPenalty).toBe('B');
     expect(withoutPenalty).toBe('A');
+  });
+
+  it('スポット別の短周期ペナルティでダンパーになりやすい波を下げる', () => {
+    const withoutProfile = calculateQuality(4, 0, false, 1.0, 7);
+    const withProfile = calculateQuality(4, 0, false, 1.0, 7, true, 0, 'short', {
+      bottom: 'shallow_sand',
+      exposure: 'sheltered_bay',
+      dumperRisk: 'high',
+      mellowBias: 'low',
+      idealPeriodMin: 8,
+      shortPeriodPenalty: 1,
+      windWavePenalty: 1,
+    });
+
+    expect(withoutProfile).toBe('A');
+    expect(withProfile).toBe('B');
   });
 
   it('D < C < B < A < S のスコア順序', () => {

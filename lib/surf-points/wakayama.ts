@@ -7,9 +7,24 @@ export const wakayamaPoints: SurfPoint[] = [
     lat: 34.257,
     lon: 135.12,
     bestSwell: 'SSW, SW, WSW, S',
-    note: '大阪湾内、強い南西〜南が必要',
+    note: '大阪湾内、強い南西〜南が必要。遠浅で上げ潮はワイド/ダンパー気味になりやすい。',
     beachFacing: 'SSW',
     tideStation: 'osaka',
+    tidePreference: {
+      falling: 1,
+      low: 0,
+      rising: 0,
+      high: -1,
+    },
+    breakProfile: {
+      bottom: 'shallow_sand',
+      exposure: 'sheltered_bay',
+      dumperRisk: 'high',
+      mellowBias: 'low',
+      idealPeriodMin: 8,
+      shortPeriodPenalty: 1,
+      windWavePenalty: 1,
+    },
     bayGeometry: {
       // 大阪湾内の南西向きビーチ。友ヶ島水道から入る南西〜南うねりに反応。
       // 友ヶ島が南側の開口を絞るため、強いうねりでないと届かない。

@@ -159,4 +159,16 @@ describe('getTideScoreEffect', () => {
   it('下げ潮は+1', () => expect(getTideScoreEffect('falling')).toBe(1));
   it('上げ潮は0', () => expect(getTideScoreEffect('rising')).toBe(0));
   it('満潮は0', () => expect(getTideScoreEffect('high')).toBe(0));
+
+  it('スポット別の潮汐補正がある場合は共通ルールより優先する', () => {
+    const isonouraTide = {
+      low: 0,
+      falling: 1,
+      rising: 0,
+      high: -1,
+    };
+
+    expect(getTideScoreEffect('low', isonouraTide)).toBe(0);
+    expect(getTideScoreEffect('high', isonouraTide)).toBe(-1);
+  });
 });

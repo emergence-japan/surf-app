@@ -8,7 +8,7 @@ import { aichiPoints } from './aichi';
 import { shimanePoints } from './shimane';
 import { kochiPoints } from './kochi';
 
-export type { SurfPoint, BayGeometry, Obstacle } from './types';
+export type { SurfPoint, BayGeometry, Obstacle, BreakProfile } from './types';
 
 export const surfPoints = [
   ...fukuiPoints,
