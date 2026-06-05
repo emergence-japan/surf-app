@@ -6,9 +6,13 @@ import {
   getWaveBaseScore,
   getWindEffect,
   calculateQuality,
+  explainQuality,
+  summarizeQualityFactors,
   checkBestSwell,
   DIRS,
 } from '@/lib/wave-calculations';
+import type { BreakProfile } from '@/lib/surf-points';
+import type { QualityFactor } from '@/lib/types';
 
 describe('degreesToDir', () => {
   it('北（0°）を N に変換する', () => {
@@ -261,5 +265,114 @@ describe('checkBestSwell', () => {
     expect(checkBestSwell('NE NNE N', 'NNE', 10)).toBe(true);
     expect(checkBestSwell('NE・NNE・N', 'N', 10)).toBe(true);
     expect(checkBestSwell('NE、NNE、N', 'NE', 10)).toBe(true);
+  });
+});
+
+describe('explainQuality', () => {
+  // 「波あるのに評価が悪い」を説明するための内訳生成
+  const river: BreakProfile = {
+    bottom: 'river_mouth',
+    exposure: 'sheltered_bay',
+    dumperRisk: 'medium',
+    mellowBias: 'low',
+    idealPeriodMin: 8,
+    shortPeriodPenalty: 1,
+    windWavePenalty: 1,
+  };
+
+  it('フラットは「ほぼフラット」要因のみ返す', () => {
+    const factors = explainQuality(1, 0, false, 0.1, 0);
+    expect(factors).toEqual([{ label: 'ほぼフラット', delta: 0 }]);
+  });
+
+  it('腹サイズ・好条件ではベース要因だけのプラス内訳になる', () => {
+    // 腹〜胸(1.4m)=baseScore5, オフショア(+1), 長周期, ベスト
+    const factors = explainQuality(5, 1, true, 1.4, 12, true, 0, 'short');
+    // ベース + オフショア + ベスト の3要因
+    expect(factors.find(f => f.delta < 0)).toBeUndefined();
+    expect(factors.some(f => f.label.includes('オフショア'))).toBe(true);
+    expect(factors.some(f => f.label === 'ベストうねり')).toBe(true);
+  });
+
+  it('腹サイズでも短周期・満潮でマイナス要因が並ぶ', () => {
+    // 腰〜腹(1.0m)=baseScore4, 短周期5秒, 満潮-1
+    const factors = explainQuality(4, 0, false, 1.0, 5, false, -1, 'short', undefined, '満潮');
+    const labels = factors.map(f => f.label);
+    expect(labels.some(l => l.includes('腰〜腹'))).toBe(true);
+    expect(labels.some(l => l.includes('短周期'))).toBe(true);
+    expect(labels.some(l => l.includes('満潮'))).toBe(true);
+    // マイナス要因が存在する
+    expect(factors.some(f => f.delta < 0)).toBe(true);
+  });
+
+  it('河口プロファイルで短周期・風波ペナルティが要因に出る', () => {
+    // 周期6秒 < idealPeriodMin8, 風波支配
+    const factors = explainQuality(4, 0, false, 1.0, 6, false, 0, 'short', river);
+    const labels = factors.map(f => f.label);
+    expect(labels.some(l => l.includes('周期が短い'))).toBe(true);
+    expect(labels.some(l => l.includes('風波'))).toBe(true);
+  });
+
+  it('要因の delta 合計が calculateQuality のグレードと整合する', () => {
+    // キャップに掛からない波高（>=1.0m → 上限S）で、スコア合計→グレードが一致することを確認
+    const cases: Array<Parameters<typeof explainQuality>> = [
+      [5, 1, true, 1.4, 12, true, 0, 'short'],            // 高条件
+      [4, 0, false, 1.0, 5, false, -1, 'short'],          // 腹だが短周期+満潮
+      [4, -2, false, 1.2, 9, true, 0, 'short'],           // 腹だがオンショア
+      [5, -3, false, 1.5, 10, true, -1, 'short'],         // 腹胸だが強風+満潮
+    ];
+
+    for (const args of cases) {
+      const factors = explainQuality(...args);
+      const sum = factors.reduce((acc, f) => acc + f.delta, 0);
+      // calculateQuality は最大9引数（explainQuality 末尾の tidePhaseLabel は表示専用）
+      const grade = calculateQuality(
+        ...(args.slice(0, 9) as Parameters<typeof calculateQuality>)
+      );
+
+      // sum からグレードを再計算（キャップ無視。波高>=1.0なので上限Sで影響しない）
+      const expected = sum >= 5 ? 'S' : sum >= 4 ? 'A' : sum >= 3 ? 'B' : sum >= 2 ? 'C' : 'D';
+      expect(grade).toBe(expected);
+    }
+  });
+});
+
+describe('summarizeQualityFactors', () => {
+  it('空なら空文字を返す', () => {
+    expect(summarizeQualityFactors([])).toBe('');
+  });
+
+  it('フラット単独要因はそのラベルを返す', () => {
+    expect(summarizeQualityFactors([{ label: 'ほぼフラット', delta: 0 }])).toBe('ほぼフラット');
+  });
+
+  it('減点があると「土台はあるが主犯で下がる」形にする', () => {
+    const factors: QualityFactor[] = [
+      { label: 'ヒザ〜腰のサイズ', delta: 3 },
+      { label: '短周期の風波', delta: -1 },
+      { label: '下げ潮（好条件）', delta: 1 },
+    ];
+    const s = summarizeQualityFactors(factors);
+    expect(s).toContain('ヒザ〜腰のサイズ'); // 最大の加点が土台として入る
+    expect(s).toContain('短周期の風波');     // 最大の減点が主犯として入る
+  });
+
+  it('減点合計が-2以下なら「大きく」を含む', () => {
+    const factors: QualityFactor[] = [
+      { label: '腰〜腹のサイズ', delta: 4 },
+      { label: '短周期の風波', delta: -1 },
+      { label: '風波主体', delta: -1 },
+    ];
+    expect(summarizeQualityFactors(factors)).toContain('大きく');
+  });
+
+  it('減点なしなら good 系のポジティブな文にする', () => {
+    const factors: QualityFactor[] = [
+      { label: '腹〜胸のサイズ', delta: 5 },
+      { label: 'オフショア（面が整う）', delta: 1 },
+    ];
+    const s = summarizeQualityFactors(factors);
+    expect(s).toContain('good');
+    expect(s).not.toContain('下がって');
   });
 });

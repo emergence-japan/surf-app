@@ -1,4 +1,4 @@
-import type { BoardType, QualityLevel } from './types';
+import type { BoardType, QualityLevel, QualityFactor } from './types';
 import type { BayGeometry, BreakProfile } from './surf-points';
 
 // 16方位の定数
@@ -312,6 +312,124 @@ export function calculateQuality(
 
   // 波サイズによる上限キャップ（ボード種別で変動）
   return applyCap(grade, getHeightCap(effectiveHeight, boardType));
+}
+
+/**
+ * 評価の内訳（QualityFactor[]）から、ユーザー向けの一言結論を組み立てる。
+ * 「サイズはあるが、短周期の風波で大きく減点」のように、
+ * プラスの土台（最大の加点）と最大の問題点（最大の減点）を対比させる。
+ */
+export function summarizeQualityFactors(factors: QualityFactor[]): string {
+  if (!factors || factors.length === 0) return '';
+  if (factors.length === 1 && factors[0].delta === 0) {
+    // フラット等、単一の中立要因
+    return factors[0].label;
+  }
+
+  const positives = factors.filter(f => f.delta > 0);
+  const negatives = factors.filter(f => f.delta < 0);
+
+  // 最大の加点（多くはサイズ）と最大の減点（主犯）
+  const topPositive = positives.reduce<QualityFactor | null>(
+    (best, f) => (best === null || f.delta > best.delta ? f : best), null);
+  const topNegative = negatives.reduce<QualityFactor | null>(
+    (worst, f) => (worst === null || f.delta < worst.delta ? f : worst), null);
+
+  const totalNegative = negatives.reduce((acc, f) => acc + f.delta, 0);
+
+  // 減点なし → 素直に良い
+  if (!topNegative) {
+    return topPositive
+      ? `${topPositive.label}が活き、good なコンディションです。`
+      : 'good なコンディションです。';
+  }
+
+  // 減点が主役
+  const base = topPositive ? `${topPositive.label}はあるものの、` : '';
+  const heavy = totalNegative <= -2 ? '大きく' : '';
+  return `${base}${topNegative.label}で${heavy}評価が下がっています。`;
+}
+
+/**
+ * calculateQuality と同じ計算手順で「評価の内訳」を返す。
+ * UIで「なぜこの評価か」を説明するための要因リストを生成する。
+ *
+ * 重要: ここの加点・減点の条件と値は calculateQuality と完全に一致させること。
+ * 片方だけ変更すると表示とスコアがズレる。
+ */
+export function explainQuality(
+  baseScore: number,
+  windEffect: number,
+  isBestSwell: boolean,
+  effectiveHeight: number,
+  period: number,
+  isSwellDominant?: boolean,
+  tideScoreEffect?: number,
+  boardType: BoardType = 'short',
+  breakProfile?: BreakProfile,
+  tidePhaseLabel?: string,  // '満潮' / '干潮' / '上げ潮' / '下げ潮' など（表示用）
+): QualityFactor[] {
+  const factors: QualityFactor[] = [];
+
+  // フラットは問答無用でD（理由もそれだけ）
+  if (effectiveHeight < 0.2) {
+    return [{ label: 'ほぼフラット', delta: 0 }];
+  }
+
+  // ベース: 波サイズ
+  const base = getWaveBaseScore(effectiveHeight, boardType);
+  factors.push({ label: `${base.label}のサイズ`, delta: baseScore });
+
+  // 風の影響
+  if (windEffect !== 0) {
+    let windLabel: string;
+    if (windEffect > 0) windLabel = 'オフショア（面が整う）';
+    else if (windEffect === -1) windLabel = 'やや風で乱れ';
+    else if (windEffect === -2) windLabel = 'オンショアで波面が荒れ';
+    else windLabel = '強風で波面が荒れ'; // -3
+    factors.push({ label: windLabel, delta: windEffect });
+  }
+
+  // 短周期 / 風波支配のペナルティ
+  const shortPeriodThreshold = boardType === 'long' ? 5 : 6;
+  const isShortPeriod = period > 0 && period <= shortPeriodThreshold;
+  if (isShortPeriod || isSwellDominant === false) {
+    const label = isShortPeriod ? '短周期の風波' : '風波が優勢';
+    factors.push({ label, delta: -1 });
+  }
+
+  // breakProfile: 理想周期未満のペナルティ
+  if (
+    breakProfile?.idealPeriodMin !== undefined
+    && breakProfile.shortPeriodPenalty !== undefined
+    && breakProfile.shortPeriodPenalty !== 0
+    && period > 0
+    && period < breakProfile.idealPeriodMin
+  ) {
+    factors.push({ label: 'このポイントには周期が短い', delta: -breakProfile.shortPeriodPenalty });
+  }
+
+  // breakProfile: 風波ペナルティ
+  if (
+    isSwellDominant === false
+    && breakProfile?.windWavePenalty !== undefined
+    && breakProfile.windWavePenalty !== 0
+  ) {
+    factors.push({ label: 'うねりが弱く風波主体', delta: -breakProfile.windWavePenalty });
+  }
+
+  // 潮汐フェーズ補正
+  if (tideScoreEffect !== undefined && tideScoreEffect !== 0) {
+    const suffix = tidePhaseLabel ? `${tidePhaseLabel}` : '潮回り';
+    factors.push({ label: tideScoreEffect > 0 ? `${suffix}（好条件）` : `${suffix}（ワイド気味）`, delta: tideScoreEffect });
+  }
+
+  // BESTボーナス
+  if (isBestSwell && baseScore >= 2) {
+    factors.push({ label: 'ベストうねり', delta: 1 });
+  }
+
+  return factors;
 }
 
 /**

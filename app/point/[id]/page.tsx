@@ -9,8 +9,9 @@ import TideChart from '@/components/tide-chart';
 import ForecastChart from '@/components/forecast-chart';
 import HourlyForecastTable from '@/components/hourly-forecast-table';
 import { convertWindDirection } from '@/lib/converters';
+import { summarizeQualityFactors } from '@/lib/wave-calculations';
 import { useForecast } from '@/context/forecast-context';
-import type { SurfPointDetail, QualityLevel } from '@/lib/types';
+import type { SurfPointDetail, QualityLevel, QualityFactor } from '@/lib/types';
 
 const qualityConfig: Record<string, { label: string; badge: string; badgeBg: string; barFrom: string; barTo: string }> = {
   S: { label: 'EPIC',  badge: 'text-amber-600',  badgeBg: 'bg-amber-50 border border-amber-200',  barFrom: 'from-amber-400', barTo: 'to-orange-500' },
@@ -45,6 +46,83 @@ function SectionTitle({ children }: { children: React.ReactNode }) {
     <div className="flex items-center gap-3 mb-4">
       <p className="text-[11px] font-bold uppercase tracking-[0.25em] text-[#707072]">{children}</p>
       <div className="flex-1 h-px bg-[#E5E5E5]" />
+    </div>
+  );
+}
+
+function QualityBreakdown({
+  factors,
+  quality,
+  cfg,
+}: {
+  factors: QualityFactor[];
+  quality: QualityLevel;
+  cfg: { label: string; badge: string; badgeBg: string };
+}) {
+  if (!factors || factors.length === 0) return null;
+
+  const summary = summarizeQualityFactors(factors);
+  // バー長の基準: 最大の絶対値（最低でも1で割らない保険）
+  const maxAbs = Math.max(1, ...factors.map(f => Math.abs(f.delta)));
+
+  return (
+    <div className="mt-5 pt-5 border-t border-[#E5E5E5]">
+      {/* 結論ヘッダー: 一番強い階層 */}
+      <div className="flex items-start gap-3 mb-4">
+        <span
+          className={`shrink-0 mt-0.5 inline-flex items-center justify-center min-w-[34px] h-[34px] px-2 rounded-lg text-[15px] font-extrabold ${cfg.badge} ${cfg.badgeBg}`}
+          aria-label={`評価 ${quality}`}
+        >
+          {quality}
+        </span>
+        <p className="text-[14px] leading-snug text-[#0d1b2a] font-medium">{summary}</p>
+      </div>
+
+      {/* 増減バー: 中央を0として左=減点 / 右=加点 */}
+      <ul className="flex flex-col gap-0.5">
+        {factors.map((f, i) => {
+          const positive = f.delta > 0;
+          const negative = f.delta < 0;
+          const pct = (Math.abs(f.delta) / maxAbs) * 50; // 片側最大50%
+          return (
+            <li
+              key={i}
+              className="group flex items-center gap-3 py-1.5 px-2 -mx-2 rounded-lg hover:bg-[#FAFAFA] transition-colors duration-150"
+            >
+              {/* ラベル */}
+              <span className="w-[44%] shrink-0 text-[12.5px] text-[#3a4a5a] group-hover:text-[#0d1b2a] transition-colors truncate">
+                {f.label}
+              </span>
+              {/* バー（中央起点の双方向） */}
+              <div className="relative flex-1 h-[7px] rounded-full bg-[#F0F0F0] overflow-hidden">
+                <span className="absolute left-1/2 top-0 bottom-0 w-px bg-[#D8D8D8]" />
+                <span
+                  className={`absolute top-0 bottom-0 rounded-full ${
+                    positive ? 'bg-gradient-to-r from-cyan-400 to-cyan-500'
+                    : negative ? 'bg-gradient-to-l from-rose-300 to-rose-400'
+                    : 'bg-[#CACACB]'
+                  }`}
+                  style={
+                    positive
+                      ? { left: '50%', width: `${pct}%` }
+                      : negative
+                        ? { right: '50%', width: `${pct}%` }
+                        : { left: 'calc(50% - 2px)', width: '4px' }
+                  }
+                />
+              </div>
+              {/* 数値 */}
+              <span
+                className={`shrink-0 w-7 text-right text-[12.5px] font-bold tabular-nums ${
+                  positive ? 'text-cyan-600' : negative ? 'text-rose-500' : 'text-[#9E9EA0]'
+                }`}
+              >
+                {positive ? '+' : ''}{f.delta}
+              </span>
+            </li>
+          );
+        })}
+      </ul>
     </div>
   );
 }
@@ -286,6 +364,11 @@ export default function PointDetail() {
                 </div>
               ))}
             </div>
+
+            {/* 評価の理由（なぜこの評価か） */}
+            {target.qualityFactors && (
+              <QualityBreakdown factors={target.qualityFactors} quality={target.quality} cfg={cfg} />
+            )}
           </div>
         </div>
 

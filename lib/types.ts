@@ -5,6 +5,13 @@ export type QualityLevel = 'S' | 'A' | 'B' | 'C' | 'D';
 
 export type BoardType = 'short' | 'long';
 
+// 評価（Quality）の内訳要因。なぜその評価になったかをUIで説明するために使う。
+// delta が正なら加点、負なら減点。0 は中立（影響なし）。
+export interface QualityFactor {
+    label: string;  // 例: '腰〜腹のサイズ' / '短周期の風波' / '満潮（ワイド気味）'
+    delta: number;  // スコアへの寄与（+4, -1, 0 など）
+}
+
 // Basic surf point summary (used in list view)
 export interface SurfPointSummary {
     id: string;
@@ -60,6 +67,7 @@ export interface SurfPointDetail extends SurfPointSummary {
     isBestSwell: boolean;
     beachFacing: string;
     breakProfile?: BreakProfile;
+    qualityFactors?: QualityFactor[]; // 現在の評価の内訳（なぜこの評価か）
     visibility?: number;
     cloudCover?: number;
     conditionSummary: string;

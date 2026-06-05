@@ -10,10 +10,20 @@ import {
   getWaveBaseScore,
   getWindEffect,
   calculateQuality,
+  explainQuality,
   checkBestSwell,
   generateConditionSummary,
 } from './wave-calculations';
+import type { TidePhase } from './tide-predictor';
 import type { SurfPointDetail } from './types';
+
+// 潮汐フェーズの表示用ラベル
+const TIDE_PHASE_LABEL: Record<TidePhase, string> = {
+  high: '満潮',
+  low: '干潮',
+  rising: '上げ潮',
+  falling: '下げ潮',
+};
 
 const FETCH_TIMEOUT_MS = 20000;
 
@@ -150,14 +160,16 @@ function resolveCurrentConditions(windRes: any, waveRes: any, currentIndex: numb
   const swellPeriod = curSwellPeriod ?? curPeriod;
   const isBestSwell = checkBestSwell(point.bestSwell, swellDirStr, swellPeriod) && waveBase.score >= 3 && windSpeedMs <= 5;
   const windEffect = getWindEffect(point.beachFacing, windDirStr, windSpeedMs);
-  const curTideScoreEffect = getTideScoreEffect(computeTidePhase(Date.now(), point.tideStation), point.tidePreference);
+  const curTidePhase = computeTidePhase(Date.now(), point.tideStation);
+  const curTideScoreEffect = getTideScoreEffect(curTidePhase, point.tidePreference);
   const finalQuality = calculateQuality(waveBase.score, windEffect, isBestSwell, effectiveHeight, curPeriod, swellAnalysis?.isSwellDominant, curTideScoreEffect, 'short', point.breakProfile);
+  const qualityFactors = explainQuality(waveBase.score, windEffect, isBestSwell, effectiveHeight, curPeriod, swellAnalysis?.isSwellDominant, curTideScoreEffect, 'short', point.breakProfile, TIDE_PHASE_LABEL[curTidePhase]);
 
   return {
     curWave, curWaveDir, curTemp, curVisibility, curCloudCover,
     curSwellDir, curSwellPeriod, windSpeedMs, windDirStr,
     swellAnalysis, effectiveHeight, waveBase, curPeriod, dominantDirStr,
-    isBestSwell, finalQuality,
+    isBestSwell, finalQuality, qualityFactors,
   };
 }
 
@@ -308,6 +320,7 @@ export async function fetchPointForecast(point: SurfPoint): Promise<SurfPointDet
     isBestSwell: cur.isBestSwell,
     beachFacing: point.beachFacing,
     breakProfile: point.breakProfile,
+    qualityFactors: cur.qualityFactors,
     temperature: cur.curTemp,
     visibility: cur.curVisibility,
     cloudCover: cur.curCloudCover,
