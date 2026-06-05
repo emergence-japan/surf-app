@@ -95,6 +95,10 @@ export default function Header() {
               className="text-[13px] font-medium text-[#0d1b2a] hover:text-[#06b6d4] px-2 py-2 rounded-lg hover:bg-[#F5F5F5] transition-colors">
               スポット一覧
             </Link>
+            <Link href="/favorites" onClick={() => setIsMenuOpen(false)}
+              className="text-[13px] font-medium text-[#0d1b2a] hover:text-[#06b6d4] px-2 py-2 rounded-lg hover:bg-[#F5F5F5] transition-colors">
+              お気に入り
+            </Link>
             <Link href="#" onClick={() => setIsMenuOpen(false)}
               className="text-[13px] font-medium text-[#707072] hover:text-[#06b6d4] px-2 py-2 rounded-lg hover:bg-[#F5F5F5] transition-colors">
               うねりマップ

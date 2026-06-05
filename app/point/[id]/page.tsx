@@ -10,6 +10,7 @@ import ForecastChart from '@/components/forecast-chart';
 import HourlyForecastTable from '@/components/hourly-forecast-table';
 import { convertWindDirection } from '@/lib/converters';
 import { summarizeQualityFactors } from '@/lib/wave-calculations';
+import FavoriteButton from '@/components/favorites/favorite-button';
 import { useForecast } from '@/context/forecast-context';
 import type { SurfPointDetail, QualityLevel, QualityFactor } from '@/lib/types';
 
@@ -258,8 +259,8 @@ export default function PointDetail() {
         />
         <div className="absolute inset-0 bg-gradient-to-t from-[#0d1b2a]/80 via-[#0d1b2a]/30 to-transparent" />
 
-        {/* 戻るボタン: ヒーロー左上にオーバーレイ */}
-        <div className="absolute top-0 left-0 right-0 px-4 md:px-6 pt-4 max-w-2xl mx-auto">
+        {/* 戻るボタン（左）＋お気に入り（右）: ヒーロー上部にオーバーレイ */}
+        <div className="absolute top-0 left-0 right-0 px-4 md:px-6 pt-4 max-w-2xl mx-auto flex items-center justify-between">
           <Link
             href="/"
             aria-label="一覧に戻る"
@@ -267,6 +268,7 @@ export default function PointDetail() {
           >
             <ArrowLeft size={18} />
           </Link>
+          <FavoriteButton spotId={id} />
         </div>
 
         <div className="absolute bottom-0 left-0 right-0 px-4 md:px-6 pb-5 max-w-2xl mx-auto">
