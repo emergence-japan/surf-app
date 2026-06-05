@@ -48,9 +48,18 @@ export const miePoints: SurfPoint[] = [
     lat: 34.305,
     lon: 136.886,
     bestSwell: 'E, ESE, SE, SSE, S',
-    note: '国府の浜の南約5km。太平洋に面した白砂ビーチ。ドン深気味のため胸〜頭サイズで良い波になりやすい。',
+    note: '国府の浜の南約5km。太平洋に面した白砂ビーチ。ドン深気味でショアブレイク/ダンパー気味になりやすい。',
     beachFacing: 'ESE',
     tideStation: 'toba',
+    breakProfile: {
+      bottom: 'deep_sand',
+      exposure: 'open_ocean',
+      dumperRisk: 'high',
+      mellowBias: 'low',
+      idealPeriodMin: 8,
+      shortPeriodPenalty: 1,
+      windWavePenalty: 1,
+    },
     bayGeometry: {
       // 志摩半島外海側、太平洋に面した南北に走るビーチ。国府の浜と同一の海岸線上。
       // 南側に大王崎(SSE 約3km)があり南南西以南を遮蔽。北側は開ける。
