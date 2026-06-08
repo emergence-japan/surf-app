@@ -1,50 +1,24 @@
 'use client';
 
-import { useEffect, useState, useTransition } from 'react';
+import { useEffect } from 'react';
 import Link from 'next/link';
 import { Star } from 'lucide-react';
-import { createClient } from '@/lib/supabase/client';
-import { toggleFavorite } from '@/app/favorites/actions';
+import type { FavoriteState } from '@/hooks/use-favorite-state';
+import { FREE_FAVORITE_LIMIT } from '@/lib/plan/limits';
 
 // スポット詳細のヒーローに置く★ボタン。
+// お気に入り状態は親（詳細ページ）が useFavoriteState で解決して渡す。
 // 未ログイン: ログイン画面へのリンク（元スポットに戻る）。
-// ログイン中: お気に入りのトグル（楽観的UI）。
-export default function FavoriteButton({ spotId }: { spotId: string }) {
-  const [userId, setUserId] = useState<string | null>(null);
-  const [resolved, setResolved] = useState(false);
-  const [favorited, setFavorited] = useState(false);
-  const [isPending, startTransition] = useTransition();
+// ログイン中: お気に入りのトグル（楽観的UI）。無料プランの上限超過はサーバーが拒否し、案内を出す。
+export default function FavoriteButton({ spotId, fav }: { spotId: string; fav: FavoriteState }) {
+  const { resolved, userId, favorited, isPending, limitReached, clearLimitReached, toggle } = fav;
 
-  // 認証状態を解決
+  // 上限案内は数秒で自動的に消す
   useEffect(() => {
-    const supabase = createClient();
-    let active = true;
-    supabase.auth.getUser().then(({ data }) => {
-      if (!active) return;
-      setUserId(data.user?.id ?? null);
-      setResolved(true);
-    });
-    const { data: sub } = supabase.auth.onAuthStateChange((_e, session) => {
-      setUserId(session?.user?.id ?? null);
-      setResolved(true);
-    });
-    return () => { active = false; sub.subscription.unsubscribe(); };
-  }, []);
-
-  // ログイン確定後、初期のお気に入り状態を取得
-  useEffect(() => {
-    if (!userId) return;
-    const supabase = createClient();
-    let active = true;
-    supabase
-      .from('favorites')
-      .select('spot_id')
-      .eq('user_id', userId)
-      .eq('spot_id', spotId)
-      .maybeSingle()
-      .then(({ data }) => { if (active) setFavorited(data !== null); });
-    return () => { active = false; };
-  }, [userId, spotId]);
+    if (!limitReached) return;
+    const t = setTimeout(clearLimitReached, 5000);
+    return () => clearTimeout(t);
+  }, [limitReached, clearLimitReached]);
 
   const baseClass =
     'inline-flex items-center justify-center w-10 h-10 rounded-full bg-black/30 backdrop-blur-md border border-white/20 transition-all duration-150 active:scale-95';
@@ -65,30 +39,37 @@ export default function FavoriteButton({ spotId }: { spotId: string }) {
     );
   }
 
-  // ログイン中: トグル
-  function handleToggle() {
-    const optimistic = !favorited;
-    setFavorited(optimistic);
-    startTransition(async () => {
-      try {
-        const { favorited: settled } = await toggleFavorite(spotId);
-        setFavorited(settled);
-      } catch {
-        setFavorited(!optimistic); // ロールバック
-      }
-    });
-  }
-
   return (
-    <button
-      type="button"
-      onClick={handleToggle}
-      disabled={isPending}
-      aria-pressed={favorited}
-      aria-label={favorited ? 'お気に入りから外す' : 'お気に入りに追加'}
-      className={`${baseClass} disabled:opacity-70 ${favorited ? 'text-[#06b6d4]' : 'text-white hover:bg-black/50'}`}
-    >
-      <Star size={18} fill={favorited ? '#06b6d4' : 'none'} />
-    </button>
+    <div className="relative">
+      <button
+        type="button"
+        onClick={toggle}
+        disabled={isPending}
+        aria-pressed={favorited}
+        aria-label={favorited ? 'お気に入りから外す' : 'お気に入りに追加'}
+        className={`${baseClass} disabled:opacity-70 ${favorited ? 'text-[#06b6d4]' : 'text-white hover:bg-black/50'}`}
+      >
+        <Star size={18} fill={favorited ? '#06b6d4' : 'none'} />
+      </button>
+
+      {/* 上限到達の案内（ボタン下に吹き出し） */}
+      {limitReached && (
+        <div
+          role="status"
+          className="absolute right-0 top-12 z-20 w-60 rounded-xl bg-white shadow-lg border border-[#E5E5E5] p-3 text-left animate-in fade-in slide-in-from-top-1 duration-200"
+        >
+          {/* 吹き出しの三角 */}
+          <span className="absolute -top-1.5 right-3 w-3 h-3 rotate-45 bg-white border-l border-t border-[#E5E5E5]" />
+          <p className="text-[13px] font-semibold text-[#0d1b2a] mb-1">
+            お気に入りは{FREE_FAVORITE_LIMIT}つまで
+          </p>
+          <p className="text-[12px] leading-snug text-[#707072]">
+            無料プランの上限です。別のスポットを外すと追加できます。
+            <br />
+            <span className="text-[#06b6d4] font-medium">まもなく無制限プランを提供予定です。</span>
+          </p>
+        </div>
+      )}
+    </div>
   );
 }

@@ -23,6 +23,22 @@ export async function listFavoriteSpotIds(): Promise<string[]> {
   return data.map((row) => row.spot_id as string);
 }
 
+// ログイン中ユーザーのお気に入り件数。未ログインなら 0。
+// 上限ガード（プラン判定）のために使う。
+export async function countFavorites(): Promise<number> {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return 0;
+
+  const { count, error } = await supabase
+    .from(TABLE)
+    .select('spot_id', { count: 'exact', head: true })
+    .eq('user_id', user.id);
+
+  if (error || count === null) return 0;
+  return count;
+}
+
 // 指定スポットがお気に入り済みか。未ログインなら false。
 export async function isFavorite(spotId: string): Promise<boolean> {
   const supabase = await createClient();

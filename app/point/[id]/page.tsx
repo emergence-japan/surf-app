@@ -11,6 +11,8 @@ import HourlyForecastTable from '@/components/hourly-forecast-table';
 import { convertWindDirection } from '@/lib/converters';
 import { summarizeQualityFactors } from '@/lib/wave-calculations';
 import FavoriteButton from '@/components/favorites/favorite-button';
+import LockedOverlay from '@/components/favorites/locked-overlay';
+import { useFavoriteState } from '@/hooks/use-favorite-state';
 import { useForecast } from '@/context/forecast-context';
 import type { SurfPointDetail, QualityLevel, QualityFactor } from '@/lib/types';
 
@@ -166,6 +168,8 @@ export default function PointDetail() {
   const { allBeachesData, isLoading, lastUpdated } = useForecast();
   const [target, setTarget] = useState<SurfPointDetail | null>(null);
   const [waveData, setWaveData] = useState<WaveCardData[]>([]);
+  // お気に入り状態（★ボタンと閲覧ロックのオーバーレイで共有）
+  const fav = useFavoriteState(id ?? '');
 
   const buildWaveData = useCallback((point: SurfPointDetail): WaveCardData[] => {
     if (!point.hourly) return [];
@@ -268,7 +272,7 @@ export default function PointDetail() {
           >
             <ArrowLeft size={18} />
           </Link>
-          <FavoriteButton spotId={id} />
+          <FavoriteButton spotId={id} fav={fav} />
         </div>
 
         <div className="absolute bottom-0 left-0 right-0 px-4 md:px-6 pb-5 max-w-2xl mx-auto">
@@ -304,6 +308,7 @@ export default function PointDetail() {
       </div>
 
       <div className="max-w-2xl mx-auto px-4 md:px-6 py-6">
+       <LockedOverlay spotId={id} fav={fav}>
 
         {/* ── Primary stats ── */}
         <div className="rounded-xl border border-[#E5E5E5] overflow-hidden mb-4">
@@ -430,6 +435,7 @@ export default function PointDetail() {
           />
         )}
 
+       </LockedOverlay>
       </div>
     </main>
   );
