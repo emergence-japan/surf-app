@@ -4,6 +4,10 @@ import { createClient } from '@/lib/supabase/server';
 import { listFavoriteSpotIds } from '@/lib/favorites/favorites';
 import FavoritesList from '@/components/favorites/favorites-list';
 
+// ユーザーのログイン状態に依存するため、ビルド時の静的生成を無効化し
+// リクエストごとに動的レンダリングする（プリレンダリングでの env 参照を防ぐ）。
+export const dynamic = 'force-dynamic';
+
 export default async function FavoritesPage() {
   // 認証ガード（未ログインはログインへ、戻り先は /favorites）
   const supabase = await createClient();
