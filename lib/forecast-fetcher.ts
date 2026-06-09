@@ -16,6 +16,12 @@ import {
 } from './wave-calculations';
 import type { TidePhase } from './tide-predictor';
 import type { SurfPointDetail } from './types';
+import {
+  parseWeatherResponse,
+  parseMarineResponse,
+  type WeatherResponse,
+  type MarineResponse,
+} from './open-meteo-schema';
 
 // 潮汐フェーズの表示用ラベル
 const TIDE_PHASE_LABEL: Record<TidePhase, string> = {
@@ -85,22 +91,20 @@ async function fetchExternalData(point: SurfPoint) {
     + `&models=best_match,gwam`
     + `&timezone=Asia%2FTokyo`;
 
-  const [windRes, waveRes] = await Promise.all([
+  const [windJson, waveJson] = await Promise.all([
     fetchWithTimeout(windUrl).then(res => res.json()),
     fetchWithTimeout(waveUrl).then(res => res.json()),
   ]);
 
-  if (windRes.error) throw new Error(`wind API error: ${windRes.reason ?? 'unknown'}`);
-  if (waveRes.error) throw new Error(`wave API error: ${waveRes.reason ?? 'unknown'}`);
-  if (!waveRes.hourly?.time || !Array.isArray(waveRes.hourly.time) || waveRes.hourly.time.length === 0) {
-    throw new Error('wave API returned empty hourly.time');
-  }
+  // 外部 API のレスポンスは信用せず、スキーマ検証してから使う。
+  // エラーレスポンス（{error:true}）・形状不一致はここで明確なエラーになる。
+  const windRes = parseWeatherResponse(windJson);
+  const waveRes = parseMarineResponse(waveJson);
 
   return { windRes, waveRes };
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-function resolveCurrentConditions(windRes: any, waveRes: any, currentIndex: number, point: SurfPoint) {
+function resolveCurrentConditions(windRes: WeatherResponse, waveRes: MarineResponse, currentIndex: number, point: SurfPoint) {
   let curWave = waveRes.current?.wave_height ?? null;
   if (curWave === null && waveRes.hourly.wave_height_gwam) curWave = waveRes.hourly.wave_height_gwam[currentIndex] ?? null;
 
@@ -110,9 +114,8 @@ function resolveCurrentConditions(windRes: any, waveRes: any, currentIndex: numb
   // 注: open-meteo の current は複数モデル指定でもサフィックスなしの単一値
   // （best_match 相当）しか返さない。current は単一値で扱う。
   // hourly / daily は 2 モデルを平均する（buildHourlyData / buildDailyData 参照）。
-  const cw = windRes.current ?? {};
-  const curWindSpd = cw.wind_speed_10m ?? null;
-  const curWindDir = cw.wind_direction_10m ?? null;
+  const curWindSpd = windRes.current?.wind_speed_10m ?? null;
+  const curWindDir = windRes.current?.wind_direction_10m ?? null;
 
   // 水温: 欠損時は 0℃ ではなく null（不明）にする。0℃ を実在値として表示しない。
   let curTemp: number | null = null;
@@ -161,7 +164,7 @@ function resolveCurrentConditions(windRes: any, waveRes: any, currentIndex: numb
   const isBestSwell = checkBestSwell(point.bestSwell, swellDirStr, swellPeriod) && waveBase.score >= 3 && windSpeedMs <= 5;
   const windEffect = getWindEffect(point.beachFacing, windDirStr, windSpeedMs);
   const curTidePhase = computeTidePhase(Date.now(), point.tideStation);
-  const curTideScoreEffect = getTideScoreEffect(curTidePhase, point.tidePreference);
+  const curTideScoreEffect = getTideScoreEffect(curTidePhase, point.tidePreference, point.tideStation);
   const finalQuality = calculateQuality(waveBase.score, windEffect, isBestSwell, effectiveHeight, curPeriod, swellAnalysis?.isSwellDominant, curTideScoreEffect, 'short', point.breakProfile);
   const qualityFactors = explainQuality(waveBase.score, windEffect, isBestSwell, effectiveHeight, curPeriod, swellAnalysis?.isSwellDominant, curTideScoreEffect, 'short', point.breakProfile, TIDE_PHASE_LABEL[curTidePhase]);
 
@@ -173,8 +176,7 @@ function resolveCurrentConditions(windRes: any, waveRes: any, currentIndex: numb
   };
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-function buildHourlyData(waveRes: any, windRes: any, point: SurfPoint) {
+function buildHourlyData(waveRes: MarineResponse, windRes: WeatherResponse, point: SurfPoint) {
   const hWaveHeight = ensembleAvg(waveRes.hourly.wave_height_marine_best_match, waveRes.hourly.wave_height_gwam, waveRes.hourly.wave_height);
   const hWavePeriod = ensembleAvg(waveRes.hourly.wave_period_marine_best_match, waveRes.hourly.wave_period_gwam, waveRes.hourly.wave_period);
   const hWaveDir: (number | null)[] | null = waveRes.hourly.wave_direction_marine_best_match ?? waveRes.hourly.wave_direction_gwam ?? waveRes.hourly.wave_direction ?? null;
@@ -209,12 +211,12 @@ function buildHourlyData(waveRes: any, windRes: any, point: SurfPoint) {
     const hIsBestSwell = checkBestSwell(point.bestSwell, hSwellDirStr, hSwellPer) && hWBase.score >= 3 && hWindSpdMs <= 5;
     const hWindEffect = getWindEffect(point.beachFacing, hWindDirStr, hWindSpdMs);
     const tMs = new Date(time).getTime();
-    const hTideScoreEffect = getTideScoreEffect(computeTidePhase(tMs, point.tideStation), point.tidePreference);
+    const hTideScoreEffect = getTideScoreEffect(computeTidePhase(tMs, point.tideStation), point.tidePreference, point.tideStation);
 
     return {
       time,
       waveHeight: hEffectiveHeight,
-      rawWaveHeight: hRawHeight,
+      rawWaveHeight: hRawHeight ?? undefined,
       waveLabel: hWBase.label,
       waveRange: hWBase.range,
       period: hPeriod,
@@ -229,24 +231,25 @@ function buildHourlyData(waveRes: any, windRes: any, point: SurfPoint) {
   });
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-function buildDailyData(waveRes: any, windRes: any, point: SurfPoint) {
-  if (!waveRes.daily?.time) return [];
+function buildDailyData(waveRes: MarineResponse, windRes: WeatherResponse, point: SurfPoint) {
+  const marineDaily = waveRes.daily;
+  if (!marineDaily) return [];
+  const wd = windRes.daily;
 
-  return waveRes.daily.time.map((time: string, i: number) => {
-    const dWaveHeightMax = waveRes.daily.wave_height_max_best_match?.[i] ?? waveRes.daily.wave_height_max_gwam?.[i] ?? waveRes.daily.wave_height_max?.[i] ?? 0;
-    const dWaveDirDom    = waveRes.daily.wave_direction_dominant_best_match?.[i] ?? waveRes.daily.wave_direction_dominant_gwam?.[i] ?? waveRes.daily.wave_direction_dominant?.[i] ?? 0;
+  return marineDaily.time.map((time: string, i: number) => {
+    const dWaveHeightMax = marineDaily.wave_height_max_best_match?.[i] ?? marineDaily.wave_height_max_gwam?.[i] ?? marineDaily.wave_height_max?.[i] ?? 0;
+    const dWaveDirDom    = marineDaily.wave_direction_dominant_best_match?.[i] ?? marineDaily.wave_direction_dominant_gwam?.[i] ?? marineDaily.wave_direction_dominant?.[i] ?? 0;
     // 風は 2 モデル: 最大風速は平均、卓越風向と天気コードは JMA MSM 優先
-    const wd = windRes.daily ?? {};
-    const dWindSpdMax    = avgPair(wd.wind_speed_10m_max_jma_msm?.[i], wd.wind_speed_10m_max_gfs_seamless?.[i]) ?? wd.wind_speed_10m_max?.[i] ?? 0;
-    const dWindDirDom    = wd.wind_direction_10m_dominant_jma_msm?.[i] ?? wd.wind_direction_10m_dominant_gfs_seamless?.[i] ?? wd.wind_direction_10m_dominant?.[i] ?? 0;
-    const dWeatherCode   = wd.weather_code_jma_msm?.[i] ?? wd.weather_code_gfs_seamless?.[i] ?? wd.weather_code?.[i] ?? 0;
+    const dWindSpdMax    = avgPair(wd?.wind_speed_10m_max_jma_msm?.[i], wd?.wind_speed_10m_max_gfs_seamless?.[i]) ?? wd?.wind_speed_10m_max?.[i] ?? 0;
+    const dWindDirDom    = wd?.wind_direction_10m_dominant_jma_msm?.[i] ?? wd?.wind_direction_10m_dominant_gfs_seamless?.[i] ?? wd?.wind_direction_10m_dominant?.[i] ?? 0;
+    const dWeatherCode   = wd?.weather_code_jma_msm?.[i] ?? wd?.weather_code_gfs_seamless?.[i] ?? wd?.weather_code?.[i] ?? 0;
 
     const noonIndex = i * 24 + 12;
     const hourlySST = waveRes.hourly.sea_surface_temperature_marine_best_match ?? waveRes.hourly.sea_surface_temperature_gwam ?? waveRes.hourly.sea_surface_temperature;
     // 水温: 欠損時は null（不明）。0℃ を実在値として埋めない。
-    const dSSTRaw = hourlySST?.length > 0 ? (hourlySST[noonIndex] ?? hourlySST[0] ?? null) : null;
-    const dSST: number | null = dSSTRaw ?? null;
+    const dSST: number | null = hourlySST && hourlySST.length > 0
+      ? (hourlySST[noonIndex] ?? hourlySST[0] ?? null)
+      : null;
 
     // 日次APIには周期データがないため、その日の正午のhourly周期を代表値として使用
     const hourlySwellPeriod = waveRes.hourly.swell_wave_period_marine_best_match ?? waveRes.hourly.swell_wave_period_gwam ?? waveRes.hourly.swell_wave_period;
@@ -274,6 +277,8 @@ function buildDailyData(waveRes: any, windRes: any, point: SurfPoint) {
       temperatureMin: dSST,
       weatherCode: dWeatherCode,
       quality: calculateQuality(dWBase.score, dWindEffect, dIsBestSwell, dEffectiveHeight, dPeriod, undefined, undefined, 'short', point.breakProfile),
+      period: dPeriod,
+      isBestSwell: dIsBestSwell,
     };
   });
 }
@@ -323,8 +328,8 @@ export async function fetchPointForecast(point: SurfPoint): Promise<SurfPointDet
     qualityFactors: cur.qualityFactors,
     imageUrl: point.imageUrl,
     temperature: cur.curTemp,
-    visibility: cur.curVisibility,
-    cloudCover: cur.curCloudCover,
+    visibility: cur.curVisibility ?? undefined,
+    cloudCover: cur.curCloudCover ?? undefined,
     conditionSummary,
     quality: cur.finalQuality,
     swellHeight: cur.swellAnalysis?.effectiveSwellHeight,

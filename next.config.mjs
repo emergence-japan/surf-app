@@ -1,3 +1,18 @@
+// Supabase の接続先は環境変数から導出する（プロジェクト URL のハードコードを避ける）
+function supabaseConnectSrc() {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  if (!url) return '';
+  try {
+    const host = new URL(url).host;
+    return ` https://${host} wss://${host}`;
+  } catch {
+    return '';
+  }
+}
+
+// 'unsafe-eval' は Next.js の開発モード（Fast Refresh）でのみ必要。本番では外す。
+const isDev = process.env.NODE_ENV === 'development';
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   // Docker/コンテナデプロイ向けの standalone 出力
@@ -40,9 +55,9 @@ const nextConfig = {
             key: 'Content-Security-Policy',
             value: [
               "default-src 'self'",
-              "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://va.vercel-scripts.com",
+              `script-src 'self' 'unsafe-inline'${isDev ? " 'unsafe-eval'" : ''} https://va.vercel-scripts.com`,
               "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
-              "connect-src 'self' https://api.open-meteo.com https://marine-api.open-meteo.com https://vitals.vercel-insights.com https://krzbwnqqozirnrlfwabk.supabase.co wss://krzbwnqqozirnrlfwabk.supabase.co",
+              `connect-src 'self' https://api.open-meteo.com https://marine-api.open-meteo.com https://vitals.vercel-insights.com${supabaseConnectSrc()}`,
               "img-src 'self' data: blob: https://images.unsplash.com",
               "font-src 'self' https://fonts.gstatic.com",
               "frame-ancestors 'none'",

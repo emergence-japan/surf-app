@@ -3,8 +3,13 @@ import {
   computeTideHeight,
   rawTideHeight,
   generateHourlyTides,
+  computeTidePhase,
+  getTideScoreEffect,
+  stationAmplitudeSum,
+  isMicroTidalStation,
   TIDE_STATIONS,
   type TideStationKey,
+  type TidePhase,
 } from '@/lib/tide-predictor';
 
 const FIXED_TIME = Date.UTC(2024, 5, 15, 6, 0, 0); // 2024-06-15 06:00 UTC
@@ -157,5 +162,63 @@ describe('気象庁公式予測との一致（室戸岬 2026-06-02）', () => {
       expect(actual.type).toBe(exp.type);
       expect(Math.abs(actual.minutes - hm(exp.time))).toBeLessThanOrEqual(TOLERANCE_MIN);
     });
+  });
+});
+
+describe('微小潮汐（日本海側）の扱い', () => {
+  it('日本海側の局（舞鶴・境港）は微小潮汐と判定される', () => {
+    expect(isMicroTidalStation('maizuru')).toBe(true);
+    expect(isMicroTidalStation('sakaiminato')).toBe(true);
+  });
+
+  it('太平洋側の局は微小潮汐ではない', () => {
+    (['toba', 'osaka', 'komatsushima', 'muroto', 'omaezaki', 'aburatsu'] as TideStationKey[])
+      .forEach(station => {
+        expect(isMicroTidalStation(station)).toBe(false);
+      });
+  });
+
+  it('stationAmplitudeSum は全分潮振幅の和を返す', () => {
+    const expected = Object.values(TIDE_STATIONS.muroto.constituents)
+      .reduce((acc, c) => acc + c.H, 0);
+    expect(stationAmplitudeSum('muroto')).toBeCloseTo(expected, 10);
+  });
+
+  it('微小潮汐の局では干潮・下げ潮でも潮汐補正は 0', () => {
+    expect(getTideScoreEffect('low', undefined, 'maizuru')).toBe(0);
+    expect(getTideScoreEffect('falling', undefined, 'maizuru')).toBe(0);
+  });
+
+  it('太平洋側の局では従来通り干潮・下げ潮が +1', () => {
+    expect(getTideScoreEffect('low', undefined, 'muroto')).toBe(1);
+    expect(getTideScoreEffect('falling', undefined, 'muroto')).toBe(1);
+    expect(getTideScoreEffect('rising', undefined, 'muroto')).toBe(0);
+  });
+
+  it('微小潮汐の局でもスポット個別の preference は優先される', () => {
+    expect(getTideScoreEffect('low', { low: 1 }, 'maizuru')).toBe(1);
+  });
+});
+
+describe('computeTidePhase の閾値スケーリング', () => {
+  /** 24時間を10分刻みでサンプリングしてフェーズの内訳を数える */
+  function phaseCounts(station: TideStationKey): Record<TidePhase, number> {
+    const counts: Record<TidePhase, number> = { rising: 0, falling: 0, high: 0, low: 0 };
+    for (let m = 0; m < 24 * 60; m += 10) {
+      counts[computeTidePhase(FIXED_TIME + m * 60000, station)]++;
+    }
+    return counts;
+  }
+
+  it('日本海側（舞鶴）でも上げ潮・下げ潮が検出される（常時 high/low にならない）', () => {
+    const counts = phaseCounts('maizuru');
+    expect(counts.rising).toBeGreaterThan(0);
+    expect(counts.falling).toBeGreaterThan(0);
+  });
+
+  it('太平洋側（室戸）は上げ潮・下げ潮が大半を占める', () => {
+    const counts = phaseCounts('muroto');
+    const total = counts.rising + counts.falling + counts.high + counts.low;
+    expect(counts.rising + counts.falling).toBeGreaterThan(total / 2);
   });
 });
