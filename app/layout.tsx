@@ -12,7 +12,6 @@ const _geistMono = Geist_Mono({ subsets: ["latin"] });
 export const metadata: Metadata = {
   title: 'Swell - Wave Forecast for Surfers',
   description: 'Real-time wave forecasts, swell conditions, and weather data for surfers. Check optimal surfing times and conditions at your favorite beaches.',
-  generator: 'v0.app',
   openGraph: {
     title: 'Swell - Wave Forecast for Surfers',
     description: 'Real-time wave forecasts, swell conditions, and weather data for surfers.',
