@@ -1,15 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { updateSession } from '@/lib/supabase/middleware';
-
-// レート制限設定
-const WINDOW_MS = 60_000;  // 1分間のウィンドウ
-const MAX_REQUESTS = 60;   // 1分あたり最大60リクエスト/IP
-
-/**
- * モジュールレベルのストア（同一Edgeワーカーインスタンス内で持続）。
- * 複数インスタンスへのデプロイ（水平スケール）では Redis/Upstash KV に切り替えてください。
- */
-const store = new Map<string, { count: number; resetAt: number }>();
+import { checkRateLimit } from '@/lib/rate-limit';
 
 function getClientIp(req: NextRequest): string {
   // Vercel Edge Runtime は NextRequest に ip プロパティを注入するが、
@@ -32,37 +23,29 @@ export async function middleware(request: NextRequest) {
 }
 
 // IP ベースのレート制限（/api/* 専用）。
-function rateLimit(request: NextRequest): NextResponse {
+// カウントは Upstash Redis（未設定時はインスタンス内メモリ）。lib/rate-limit.ts 参照。
+async function rateLimit(request: NextRequest): Promise<NextResponse> {
   const ip = getClientIp(request);
-  const now = Date.now();
+  const result = await checkRateLimit(ip);
 
-  const prev = store.get(ip);
-  if (!prev || now > prev.resetAt) {
-    store.set(ip, { count: 1, resetAt: now + WINDOW_MS });
-    return addRateLimitHeaders(NextResponse.next(), 1, MAX_REQUESTS, now + WINDOW_MS);
-  }
-
-  const record = { count: prev.count + 1, resetAt: prev.resetAt };
-  store.set(ip, record);
-
-  if (record.count > MAX_REQUESTS) {
-    const retryAfter = Math.ceil((record.resetAt - now) / 1000);
+  if (result.limited) {
+    const retryAfter = Math.ceil((result.resetAt - Date.now()) / 1000);
     return new NextResponse(
       JSON.stringify({ error: 'リクエストが多すぎます。しばらくお待ちください。' }),
       {
         status: 429,
         headers: {
           'Content-Type': 'application/json',
-          'Retry-After': String(retryAfter),
-          'X-RateLimit-Limit': String(MAX_REQUESTS),
+          'Retry-After': String(Math.max(1, retryAfter)),
+          'X-RateLimit-Limit': String(result.limit),
           'X-RateLimit-Remaining': '0',
-          'X-RateLimit-Reset': String(Math.ceil(record.resetAt / 1000)),
+          'X-RateLimit-Reset': String(Math.ceil(result.resetAt / 1000)),
         },
       }
     );
   }
 
-  return addRateLimitHeaders(NextResponse.next(), record.count, MAX_REQUESTS, record.resetAt);
+  return addRateLimitHeaders(NextResponse.next(), result.count, result.limit, result.resetAt);
 }
 
 function addRateLimitHeaders(

@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 
 // sessionStorage のキャッシュロジックをモジュール内部と同等に再実装してテスト
-const CACHE_KEY = 'surf-forecast-v2';
+const CACHE_KEY = 'surf-forecast-v3';
 const CACHE_TTL_MS = 5 * 60 * 1000;
 
 interface CacheEntry {

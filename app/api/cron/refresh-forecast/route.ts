@@ -28,13 +28,19 @@ async function refreshOne(point: typeof surfPoints[number]): Promise<{ id: strin
 }
 
 export async function GET(request: Request) {
-  // Vercel Cron は Authorization: Bearer <CRON_SECRET> を付けてくる
+  // Vercel Cron は Authorization: Bearer <CRON_SECRET> を付けてくる。
+  // CRON_SECRET 未設定時は認証なしで全スポット一斉フェッチを誘発できてしまうため、
+  // 設定されるまでこのエンドポイント自体を無効にする（フェイルクローズ）。
   const cronSecret = process.env.CRON_SECRET;
-  if (cronSecret) {
-    const auth = request.headers.get('authorization');
-    if (auth !== `Bearer ${cronSecret}`) {
-      return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
-    }
+  if (!cronSecret) {
+    return NextResponse.json(
+      { error: 'CRON_SECRET is not configured. Set it before enabling the cron endpoint.' },
+      { status: 503 }
+    );
+  }
+  const auth = request.headers.get('authorization');
+  if (auth !== `Bearer ${cronSecret}`) {
+    return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
   }
 
   if (!isCacheConfigured()) {

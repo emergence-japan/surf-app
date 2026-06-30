@@ -218,6 +218,35 @@ export const TIDE_STATIONS = {
 
 export type TideStationKey = keyof typeof TIDE_STATIONS;
 
+// ---- 観測局の潮汐規模 ----
+
+const amplitudeSumCache = new Map<TideStationKey, number>();
+
+/**
+ * 観測局の合計振幅 ΣH [m]（全分潮の振幅の和 ≒ 大潮時の片振幅の目安）。
+ * フェーズ判定の閾値スケーリングと微小潮汐判定に使う。
+ */
+export function stationAmplitudeSum(stationKey: TideStationKey): number {
+  const cached = amplitudeSumCache.get(stationKey);
+  if (cached !== undefined) return cached;
+  const sum = Object.values(TIDE_STATIONS[stationKey].constituents)
+    .reduce((acc, c) => acc + c.H, 0);
+  amplitudeSumCache.set(stationKey, sum);
+  return sum;
+}
+
+/**
+ * 微小潮汐の判定閾値 [m]。
+ * 日本海側（舞鶴 ΣH≈0.25 / 境港 ≈0.22）と太平洋側（ΣH 1.1〜1.5）は
+ * 1桁違うため、0.5m で明確に分離できる。
+ */
+export const MICRO_TIDAL_AMPLITUDE = 0.5;
+
+/** 潮差が小さく、潮汐がサーフコンディションにほぼ影響しない観測局か。 */
+export function isMicroTidalStation(stationKey: TideStationKey): boolean {
+  return stationAmplitudeSum(stationKey) < MICRO_TIDAL_AMPLITUDE;
+}
+
 /**
  * 指定時刻の潮汐高を計算する（丸めなしの生値）[m]
  * 満干の極値検出やフェーズ判定には丸めるとノイズが乗るため、こちらを使う。
@@ -254,16 +283,22 @@ export type TidePreference = Partial<Record<TidePhase, number>>;
 
 /**
  * 潮汐フェーズと±30分の変化量から上げ/下げ/満潮/干潮を判定する
- * - 変化量が ±0.03m/h 未満 → 満潮または干潮（転換点）
+ * - 変化量が閾値未満 → 満潮または干潮（転換点）
  * - 正の変化量 → 上げ潮
  * - 負の変化量 → 下げ潮
+ *
+ * 転換点の閾値は観測局の潮差（合計振幅）に比例させる。
+ * 固定値 0.03m/h だと日本海側（ΣH≈0.25m、理論最大変化率 ≈0.03m/h）では
+ * ほぼ常時「満潮 or 干潮」と判定されてしまうため。
+ * 係数 0.022 は室戸（ΣH≈1.35m）で従来の 0.03m/h と一致するよう較正。
  */
 export function computeTidePhase(timeMs: number, stationKey: TideStationKey): TidePhase {
   const prev = rawTideHeight(timeMs - 30 * 60 * 1000, stationKey);
   const next = rawTideHeight(timeMs + 30 * 60 * 1000, stationKey);
   const rate = next - prev; // 1時間あたりの変化量 [m/h]
 
-  if (Math.abs(rate) < 0.03) {
+  const rateEps = Math.max(0.005, 0.022 * stationAmplitudeSum(stationKey));
+  if (Math.abs(rate) < rateEps) {
     const curr = rawTideHeight(timeMs, stationKey);
     const nearby = [
       rawTideHeight(timeMs - 2 * 3600 * 1000, stationKey),
@@ -282,9 +317,18 @@ export function computeTidePhase(timeMs: number, stationKey: TideStationKey): Ti
  * - 干潮: +1（リーフ・サンドバー系ポイントで波が掘れやすい）
  * - 上げ潮: 0
  * - 急激な満潮: 0（カレントが強くなりやすいが判定が難しいため中立）
+ *
+ * stationKey を渡した場合、微小潮汐の局（日本海側）はスポット個別の
+ * preference がない限り常に 0 を返す。潮差 0.2m 程度ではブレイクへの
+ * 影響が無視できるのに、一律 +1 が付くとグレードが恒常的に底上げされるため。
  */
-export function getTideScoreEffect(phase: TidePhase, preference?: TidePreference): number {
+export function getTideScoreEffect(
+  phase: TidePhase,
+  preference?: TidePreference,
+  stationKey?: TideStationKey
+): number {
   if (preference && preference[phase] !== undefined) return preference[phase]!;
+  if (stationKey !== undefined && isMicroTidalStation(stationKey)) return 0;
 
   if (phase === 'low') return 1;    // 干潮: サンドバー・リーフが機能しやすい
   if (phase === 'falling') return 1; // 下げ潮: 波が掘れやすい

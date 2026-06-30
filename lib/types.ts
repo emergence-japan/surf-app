@@ -55,13 +55,16 @@ export interface DailyForecastData {
     temperatureMin: number | null;
     weatherCode: number;
     quality: QualityLevel;
+    // ボード切替時のクライアント側再計算に必要（旧キャッシュには無いため optional）
+    period?: number;       // 代表周期（その日の正午の hourly 周期）[s]
+    isBestSwell?: boolean; // その日の卓越方向がベストうねりか
 }
 
 // Detailed surf point data (used in detail view)
 export interface SurfPointDetail extends SurfPointSummary {
     heightMeters: number;
     heightRange: string;
-    rawSwellHeight: number;
+    rawSwellHeight: number | null; // 沖合の生波高 [m]。データ欠損時は null（不明）
     waveDirectionStr: string;
     waveDirectionDeg: number;
     isBestSwell: boolean;

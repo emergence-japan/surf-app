@@ -1,4 +1,4 @@
-import type { BoardType, SurfPointDetail, HourlyForecastData } from './types';
+import type { BoardType, SurfPointDetail, HourlyForecastData, DailyForecastData } from './types';
 import { getWaveBaseScore, calculateQuality, getWindEffect, DIRS, type Dir } from './wave-calculations';
 
 // 風向き文字列(N/NE/...)とビーチの向きから dirDiff (0=オン、8=オフ) を出す
@@ -72,11 +72,28 @@ export function applyBoardType(point: SurfPointDetail, boardType: BoardType): Su
     return { ...h, quality: r.quality, waveLabel: r.label, waveRange: r.range };
   });
 
+  // 週間予報も再計算する。isBestSwell は日ごとの値を使う（current の値ではない）。
+  // 旧キャッシュには period / isBestSwell が無いため、欠損時は
+  // period=0（周期ペナルティなし）・isBestSwell=false で安全側に倒す。
+  const daily: DailyForecastData[] = point.daily.map(d => {
+    const r = recomputeQualityForBoard(
+      d.waveHeight,
+      d.windDir,
+      d.windSpeedMax,
+      d.period ?? 0,
+      undefined,
+      { ...ctx, isBestSwell: d.isBestSwell ?? false },
+      boardType
+    );
+    return { ...d, quality: r.quality, waveLabel: r.label };
+  });
+
   return {
     ...point,
     quality: cur.quality,
     height: cur.label,
     heightRange: cur.range,
     hourly,
+    daily,
   };
 }

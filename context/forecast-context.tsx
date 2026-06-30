@@ -22,7 +22,7 @@ const ForecastContext = createContext<ForecastContextType | undefined>(undefined
 
 // セッション内キャッシュ（ページ遷移でも再フェッチしない）
 // サーバー側 Redis キャッシュが主、こちらはネットワーク往復削減のための軽い補助。
-const CACHE_KEY = 'surf-forecast-v2';
+const CACHE_KEY = 'surf-forecast-v3'; // v3: daily に period / isBestSwell を追加
 const CACHE_TTL_MS = 5 * 60 * 1000; // 5分（サーバーが1時間フレッシュなのでクライアントは短く）
 
 interface SessionCacheEntry {

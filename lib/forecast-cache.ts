@@ -22,7 +22,8 @@ export interface CachedForecastEntry {
   fetchedAt: number; // epoch ms
 }
 
-const KEY_PREFIX = 'forecast:v1:';
+// v2: daily に period / isBestSwell を追加（ボード切替の週間予報再計算用）
+const KEY_PREFIX = 'forecast:v2:';
 const FRESH_TTL_MS = 60 * 60 * 1000; // 1時間以内なら fresh
 const STALE_TTL_SEC = 24 * 60 * 60; // Redis上は24時間保持（fresh外でもstaleとして使う）
 
