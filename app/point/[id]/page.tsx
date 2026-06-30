@@ -13,6 +13,7 @@ import { summarizeQualityFactors } from '@/lib/wave-calculations';
 import FavoriteButton from '@/components/favorites/favorite-button';
 import LockedOverlay from '@/components/favorites/locked-overlay';
 import { useFavoriteState } from '@/hooks/use-favorite-state';
+import { useDailyViewMeter } from '@/hooks/use-daily-view-meter';
 import { useForecast } from '@/context/forecast-context';
 import type { SurfPointDetail, QualityLevel, QualityFactor } from '@/lib/types';
 
@@ -168,8 +169,10 @@ export default function PointDetail() {
   const { allBeachesData, isLoading, lastUpdated } = useForecast();
   const [target, setTarget] = useState<SurfPointDetail | null>(null);
   const [waveData, setWaveData] = useState<WaveCardData[]>([]);
-  // お気に入り状態（★ボタンと閲覧ロックのオーバーレイで共有）
+  // ★お気に入り状態（有料の特典。ヒーローの★ボタンで使う）
   const fav = useFavoriteState(id ?? '');
+  // 無料の「1日3スポット」閲覧メーター（詳細のロック制御）
+  const viewMeter = useDailyViewMeter(id ?? '');
 
   const buildWaveData = useCallback((point: SurfPointDetail): WaveCardData[] => {
     if (!point.hourly) return [];
@@ -308,7 +311,7 @@ export default function PointDetail() {
       </div>
 
       <div className="max-w-2xl mx-auto px-4 md:px-6 py-6">
-       <LockedOverlay spotId={id} fav={fav}>
+       <LockedOverlay spotId={id} meter={viewMeter}>
 
         {/* ── Primary stats ── */}
         <div className="rounded-xl border border-[#E5E5E5] overflow-hidden mb-4">

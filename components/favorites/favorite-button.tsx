@@ -26,12 +26,13 @@ export default function FavoriteButton({ spotId, fav }: { spotId: string; fav: F
   // 解決前: レイアウトシフト防止のプレースホルダ
   if (!resolved) return <div className="w-10 h-10" aria-hidden />;
 
-  // 未ログイン: ログインへ誘導
+  // 未ログイン: お気に入りは登録ユーザー(将来の有料)の特典。登録へ誘導する。
   if (!userId) {
     return (
       <Link
         href={`/login?next=/point/${spotId}`}
-        aria-label="お気に入りに追加（ログインが必要）"
+        aria-label="お気に入りに登録して保存（要ログイン）"
+        title="お気に入りの保存は登録すると使えます"
         className={`${baseClass} text-white hover:bg-black/50`}
       >
         <Star size={18} />
