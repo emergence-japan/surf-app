@@ -7,6 +7,7 @@ import {
   calculateBayEffectiveHeight,
   analyzeSwellComponents,
   applyBreakProfileHeightFactor,
+  applyShoalingFactor,
   getWaveBaseScore,
   getWindEffect,
   calculateQuality,
@@ -152,11 +153,13 @@ function resolveCurrentConditions(windRes: WeatherResponse, waveRes: MarineRespo
   const rawEffectiveHeight = swellAnalysis
     ? swellAnalysis.combinedEffectiveHeight
     : (point.bayGeometry
-        ? calculateBayEffectiveHeight(curWave, waveDirStr, point.beachFacing, waveRes.current?.wave_period ?? null, point.bayGeometry)
-        : calculateEffectiveHeight(curWave, waveDirStr, point.beachFacing, waveRes.current?.wave_period));
+        ? calculateBayEffectiveHeight(curWave, curWaveDir, point.beachFacing, waveRes.current?.wave_period ?? null, point.bayGeometry)
+        : calculateEffectiveHeight(curWave, curWaveDir, point.beachFacing, waveRes.current?.wave_period));
 
   const curPeriod = swellAnalysis ? swellAnalysis.dominantPeriod : (waveRes.current?.wave_period ?? 0);
-  const effectiveHeight = applyBreakProfileHeightFactor(rawEffectiveHeight, curPeriod, point.breakProfile);
+  // 長周期うねりは砕波時に盛り上がるため、体感サイズへ増幅補正してから
+  // スポット別の減衰補正（breakProfile）を掛ける
+  const effectiveHeight = applyBreakProfileHeightFactor(applyShoalingFactor(rawEffectiveHeight, curPeriod), curPeriod, point.breakProfile);
   const waveBase = getWaveBaseScore(effectiveHeight);
   const dominantDirStr = swellAnalysis ? swellAnalysis.dominantDirStr : waveDirStr;
   const swellDirStr = swellAnalysis ? degreesToDir(curSwellDir) : waveDirStr;
@@ -203,8 +206,8 @@ function buildHourlyData(waveRes: MarineResponse, windRes: WeatherResponse, poin
       : null;
 
     const hPeriod = hSwellAnalysis ? hSwellAnalysis.dominantPeriod : (hWavePeriod?.[i] ?? 0);
-    const hRawEffectiveHeight = hSwellAnalysis ? hSwellAnalysis.combinedEffectiveHeight : (point.bayGeometry ? calculateBayEffectiveHeight(hRawHeight, hWDirStr, point.beachFacing, hWavePeriod?.[i] ?? null, point.bayGeometry) : calculateEffectiveHeight(hRawHeight, hWDirStr, point.beachFacing, hWavePeriod?.[i]));
-    const hEffectiveHeight = applyBreakProfileHeightFactor(hRawEffectiveHeight, hPeriod, point.breakProfile);
+    const hRawEffectiveHeight = hSwellAnalysis ? hSwellAnalysis.combinedEffectiveHeight : (point.bayGeometry ? calculateBayEffectiveHeight(hRawHeight, hWaveDir?.[i] ?? null, point.beachFacing, hWavePeriod?.[i] ?? null, point.bayGeometry) : calculateEffectiveHeight(hRawHeight, hWaveDir?.[i] ?? null, point.beachFacing, hWavePeriod?.[i]));
+    const hEffectiveHeight = applyBreakProfileHeightFactor(applyShoalingFactor(hRawEffectiveHeight, hPeriod), hPeriod, point.breakProfile);
     const hWBase = getWaveBaseScore(hEffectiveHeight);
     const hSwellDirStr = hSwellAnalysis ? degreesToDir(hSwellDir?.[i]) : hWDirStr;
     const hSwellPer = hSwellPeriod?.[i] ?? hPeriod;
@@ -224,6 +227,8 @@ function buildHourlyData(waveRes: MarineResponse, windRes: WeatherResponse, poin
       windDir: hWindDirStr,
       quality: calculateQuality(hWBase.score, hWindEffect, hIsBestSwell, hEffectiveHeight, hPeriod, hSwellAnalysis?.isSwellDominant, hTideScoreEffect, 'short', point.breakProfile),
       tide: computeTideHeight(tMs, point.tideStation),
+      // swellHeight / windWaveHeight は砕波前の成分値（沖からビーチに届くうねりの量）。
+      // waveHeight は砕波補正（shoaling）後の体感サイズなので、長周期時は成分の合成より大きくなる。
       swellHeight: hSwellAnalysis?.effectiveSwellHeight,
       windWaveHeight: hSwellAnalysis?.effectiveWindWaveHeight,
       isSwellDominant: hSwellAnalysis?.isSwellDominant,
@@ -238,10 +243,12 @@ function buildDailyData(waveRes: MarineResponse, windRes: WeatherResponse, point
 
   return marineDaily.time.map((time: string, i: number) => {
     const dWaveHeightMax = marineDaily.wave_height_max_best_match?.[i] ?? marineDaily.wave_height_max_gwam?.[i] ?? marineDaily.wave_height_max?.[i] ?? 0;
-    const dWaveDirDom    = marineDaily.wave_direction_dominant_best_match?.[i] ?? marineDaily.wave_direction_dominant_gwam?.[i] ?? marineDaily.wave_direction_dominant?.[i] ?? 0;
+    // 方向の欠損は null（不明）にする。0（=北）で埋めると存在しない北うねり・北風として
+    // 減衰・風影響が計算されてしまう。null なら減衰なし・表示は「-」・風影響は中立になる。
+    const dWaveDirDom    = marineDaily.wave_direction_dominant_best_match?.[i] ?? marineDaily.wave_direction_dominant_gwam?.[i] ?? marineDaily.wave_direction_dominant?.[i] ?? null;
     // 風は 2 モデル: 最大風速は平均、卓越風向と天気コードは JMA MSM 優先
     const dWindSpdMax    = avgPair(wd?.wind_speed_10m_max_jma_msm?.[i], wd?.wind_speed_10m_max_gfs_seamless?.[i]) ?? wd?.wind_speed_10m_max?.[i] ?? 0;
-    const dWindDirDom    = wd?.wind_direction_10m_dominant_jma_msm?.[i] ?? wd?.wind_direction_10m_dominant_gfs_seamless?.[i] ?? wd?.wind_direction_10m_dominant?.[i] ?? 0;
+    const dWindDirDom    = wd?.wind_direction_10m_dominant_jma_msm?.[i] ?? wd?.wind_direction_10m_dominant_gfs_seamless?.[i] ?? wd?.wind_direction_10m_dominant?.[i] ?? null;
     const dWeatherCode   = wd?.weather_code_jma_msm?.[i] ?? wd?.weather_code_gfs_seamless?.[i] ?? wd?.weather_code?.[i] ?? 0;
 
     const noonIndex = i * 24 + 12;
@@ -258,9 +265,9 @@ function buildDailyData(waveRes: MarineResponse, windRes: WeatherResponse, point
 
     const dWDirStr = degreesToDir(dWaveDirDom);
     const dRawEffectiveHeight = point.bayGeometry
-      ? calculateBayEffectiveHeight(dWaveHeightMax, dWDirStr, point.beachFacing, null, point.bayGeometry)
-      : calculateEffectiveHeight(dWaveHeightMax, dWDirStr, point.beachFacing);
-    const dEffectiveHeight = applyBreakProfileHeightFactor(dRawEffectiveHeight, dPeriod, point.breakProfile);
+      ? calculateBayEffectiveHeight(dWaveHeightMax, dWaveDirDom, point.beachFacing, null, point.bayGeometry)
+      : calculateEffectiveHeight(dWaveHeightMax, dWaveDirDom, point.beachFacing);
+    const dEffectiveHeight = applyBreakProfileHeightFactor(applyShoalingFactor(dRawEffectiveHeight, dPeriod), dPeriod, point.breakProfile);
     const dWBase = getWaveBaseScore(dEffectiveHeight);
     const dWindDirStr = degreesToDir(dWindDirDom);
     const dIsBestSwell = checkBestSwell(point.bestSwell, dWDirStr, dPeriod);
@@ -332,6 +339,7 @@ export async function fetchPointForecast(point: SurfPoint): Promise<SurfPointDet
     cloudCover: cur.curCloudCover ?? undefined,
     conditionSummary,
     quality: cur.finalQuality,
+    // swellHeight / windWaveHeight は砕波前の成分値。heightMeters は shoaling 後の体感サイズ
     swellHeight: cur.swellAnalysis?.effectiveSwellHeight,
     swellDirStr: cur.swellAnalysis ? degreesToDir(cur.curSwellDir) : undefined,
     swellPeriod: cur.curSwellPeriod ?? undefined,

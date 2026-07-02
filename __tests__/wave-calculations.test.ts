@@ -2,7 +2,10 @@ import { describe, it, expect } from 'vitest';
 import {
   degreesToDir,
   calculateEffectiveHeight,
+  calculateBayEffectiveHeight,
   applyBreakProfileHeightFactor,
+  getShoalingFactor,
+  applyShoalingFactor,
   getWaveBaseScore,
   getWindEffect,
   calculateQuality,
@@ -11,7 +14,7 @@ import {
   checkBestSwell,
   DIRS,
 } from '@/lib/wave-calculations';
-import type { BreakProfile } from '@/lib/surf-points';
+import type { BreakProfile, BayGeometry } from '@/lib/surf-points';
 import type { QualityFactor } from '@/lib/types';
 
 describe('degreesToDir', () => {
@@ -51,45 +54,124 @@ describe('degreesToDir', () => {
 
 describe('calculateEffectiveHeight', () => {
   it('null の波高は 0 を返す', () => {
-    expect(calculateEffectiveHeight(null, 'N', 'N')).toBe(0);
-    expect(calculateEffectiveHeight(undefined, 'N', 'N')).toBe(0);
+    expect(calculateEffectiveHeight(null, 0, 'N')).toBe(0);
+    expect(calculateEffectiveHeight(undefined, 0, 'N')).toBe(0);
   });
 
-  it('正面から来る波（diff=0）は減衰なし', () => {
-    // ビーチが N 向き、うねりが N から来る → 完全に正面
-    const result = calculateEffectiveHeight(1.0, 'N', 'N');
+  it('正面から来る波（0°差）は減衰なし', () => {
+    // ビーチが N 向き、うねりが N（0°）から来る → 完全に正面
+    const result = calculateEffectiveHeight(1.0, 0, 'N');
     expect(result).toBeCloseTo(1.0, 2);
   });
 
-  it('真横（90°差、diff=4）は大きく減衰する', () => {
-    // ビーチが N 向き、うねりが E から来る（90°差）
-    const result = calculateEffectiveHeight(1.0, 'E', 'N');
+  it('真横（90°差）は大きく減衰する', () => {
+    // ビーチが N 向き、うねりが E（90°）から来る
+    const result = calculateEffectiveHeight(1.0, 90, 'N');
     expect(result).toBeLessThan(0.1);
   });
 
-  it('45°差（diff=2）は約 70% 程度に減衰', () => {
-    // ビーチが N 向き、うねりが NE から来る（45°差）
-    const result = calculateEffectiveHeight(1.0, 'NE', 'N');
+  it('45°差は約 70% 程度に減衰', () => {
+    // ビーチが N 向き、うねりが NE（45°）から来る
+    const result = calculateEffectiveHeight(1.0, 45, 'N');
     expect(result).toBeGreaterThan(0.6);
     expect(result).toBeLessThan(0.8);
   });
 
-  it('背後から来る波（diff=8、180°）は最小減衰（0.05）を下回らない', () => {
-    // ビーチが N 向き、うねりが S から来る（真後ろ）
-    const result = calculateEffectiveHeight(1.0, 'S', 'N');
+  it('背後から来る波（180°差）は最小減衰（0.05）を下回らない', () => {
+    // ビーチが N 向き、うねりが S（180°）から来る（真後ろ）
+    const result = calculateEffectiveHeight(1.0, 180, 'N');
     expect(result).toBeGreaterThanOrEqual(0.05);
   });
 
   it('長周期（14s+）は角度減衰が緩和される', () => {
     // 同じ 45° 差でも長周期の方が波高が高くなる
-    const shortPeriod = calculateEffectiveHeight(1.0, 'NE', 'N', 5);
-    const longPeriod = calculateEffectiveHeight(1.0, 'NE', 'N', 15);
+    const shortPeriod = calculateEffectiveHeight(1.0, 45, 'N', 5);
+    const longPeriod = calculateEffectiveHeight(1.0, 45, 'N', 15);
     expect(longPeriod).toBeGreaterThan(shortPeriod);
   });
 
   it('方向情報がない場合は生の波高をそのまま返す', () => {
-    expect(calculateEffectiveHeight(1.5, '-', 'N')).toBe(1.5);
-    expect(calculateEffectiveHeight(1.5, '', 'N')).toBe(1.5);
+    expect(calculateEffectiveHeight(1.5, null, 'N')).toBe(1.5);
+    expect(calculateEffectiveHeight(1.5, undefined, 'N')).toBe(1.5);
+  });
+
+  it('生の度数で減衰計算する（16方位に量子化しない）', () => {
+    // 12° は旧実装だと NNE（22.5°）に丸められ cos(22.5°)≈0.92 だった。
+    // 生角度なら cos(12°)≈0.98 になるはず。
+    const result = calculateEffectiveHeight(1.0, 12, 'N');
+    expect(result).toBeCloseTo(Math.cos((12 * Math.PI) / 180), 2);
+    expect(result).toBeGreaterThan(0.97);
+  });
+
+  it('350° と N 向きビーチの角度差は 10°（360° をまたぐ）', () => {
+    const result = calculateEffectiveHeight(1.0, 350, 'N');
+    expect(result).toBeCloseTo(Math.cos((10 * Math.PI) / 180), 2);
+  });
+});
+
+describe('calculateBayEffectiveHeight', () => {
+  const bay: BayGeometry = {
+    type: 'semi-enclosed',
+    openingAngle: 90,
+    openingDir: 180,
+    openingDirStr: 'S',
+    diffractionFactor: 0.3,
+    convergenceFactor: 1.0,
+    headlands: [{ bearing: 135, distanceKm: 2 }],
+  };
+
+  it('湾口の中心から来るうねりは減衰しない（収束係数1.0）', () => {
+    expect(calculateBayEffectiveHeight(1.0, 180, 'S', null, bay)).toBeCloseTo(1.0, 2);
+  });
+
+  it('湾口の外から来るうねりは回折係数で大きく減衰する', () => {
+    // E(90°) は湾口(180°±45°)の外 → 端から45°超過 → 0.3 * cos(45°) ≈ 0.21
+    const result = calculateBayEffectiveHeight(1.0, 90, 'S', null, bay);
+    expect(result).toBeCloseTo(0.3 * Math.cos((45 * Math.PI) / 180), 2);
+  });
+
+  it('方向情報がない場合は生の波高をそのまま返す', () => {
+    expect(calculateBayEffectiveHeight(1.5, null, 'S', null, bay)).toBe(1.5);
+  });
+
+  it('生の度数で計算する（16方位に量子化しない）', () => {
+    // 湾口中心 180° から 10° ずれ（170°）: 湾口内なので収束係数と cos の補間
+    // 旧実装は 170° を SSE ではなく S(180°) 側に丸めて差 0° 扱いになり得た
+    const centered = calculateBayEffectiveHeight(1.0, 180, 'S', null, bay);
+    const offCenter = calculateBayEffectiveHeight(1.0, 170, 'S', null, bay);
+    expect(offCenter).toBeLessThan(centered);
+    expect(offCenter).toBeGreaterThan(0.9);
+  });
+});
+
+describe('getShoalingFactor / applyShoalingFactor', () => {
+  it('基準周期（8秒）以下は 1.0（従来挙動を維持）', () => {
+    expect(getShoalingFactor(8)).toBe(1.0);
+    expect(getShoalingFactor(6)).toBe(1.0);
+    expect(getShoalingFactor(0)).toBe(1.0);
+    expect(getShoalingFactor(null)).toBe(1.0);
+    expect(getShoalingFactor(undefined)).toBe(1.0);
+  });
+
+  it('長周期ほど砕波時の増幅が大きい（(T/8)^0.4）', () => {
+    expect(getShoalingFactor(12)).toBeCloseTo(Math.pow(12 / 8, 0.4), 3);
+    expect(getShoalingFactor(15)).toBeCloseTo(Math.pow(15 / 8, 0.4), 3);
+    expect(getShoalingFactor(15)).toBeGreaterThan(getShoalingFactor(12));
+  });
+
+  it('増幅は 1.35 で頭打ち', () => {
+    expect(getShoalingFactor(20)).toBe(1.35);
+    expect(getShoalingFactor(25)).toBe(1.35);
+  });
+
+  it('applyShoalingFactor は増幅後の波高を小数2桁に丸める', () => {
+    expect(applyShoalingFactor(1.0, 15)).toBeCloseTo(1.29, 2);
+    expect(applyShoalingFactor(1.0, 8)).toBe(1.0);
+  });
+
+  it('沖1.0mでも周期15秒ならサイズラベルが1段上がる', () => {
+    expect(getWaveBaseScore(1.0).label).toBe('腰〜腹');
+    expect(getWaveBaseScore(applyShoalingFactor(1.0, 15)).label).toBe('腹〜胸');
   });
 });
 

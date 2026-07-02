@@ -12,28 +12,32 @@ export function degreesToDir(degrees: number | null | undefined): string {
   return DIRS[dirIndex];
 }
 
+// 方位角を 0〜360 未満に正規化
+function normalizeDeg(deg: number): number {
+  return ((deg % 360) + 360) % 360;
+}
+
 // ビーチでの有効な波高を計算
 // - cos関数で物理的に正確な角度減衰を計算
+// - うねり方向は生の度数で受け取る（16方位に量子化すると最大±11.25°の誤差が出るため）
+// - ビーチ向きはスポット定義が16方位文字列なので、内部で度数に変換する
 // - 周期が長いほど屈折でビーチに届きやすいため実効角度を補正
 export function calculateEffectiveHeight(
   swellHeight: number | null | undefined,
-  swellDir: string,
+  swellDirDeg: number | null | undefined,
   beachFacing: string,
   period?: number | null
 ): number {
   if (swellHeight === null || swellHeight === undefined) return 0;
-  if (!swellDir || !beachFacing || swellDir === '-') return swellHeight;
+  if (swellDirDeg === null || swellDirDeg === undefined || !beachFacing) return swellHeight;
 
   const beachIdx = DIRS.indexOf(beachFacing as Dir);
-  const swellIdx = DIRS.indexOf(swellDir as Dir);
+  if (beachIdx === -1) return swellHeight;
+  const beachDeg = beachIdx * 22.5;
 
-  if (beachIdx === -1 || swellIdx === -1) return swellHeight;
-
-  let diff = Math.abs(beachIdx - swellIdx);
-  if (diff > 8) diff = 16 - diff;
-
-  // 角度差（度数）
-  let angleDeg = diff * 22.5;
+  // 角度差（度数、0〜180）
+  let angleDeg = Math.abs(normalizeDeg(swellDirDeg) - beachDeg);
+  if (angleDeg > 180) angleDeg = 360 - angleDeg;
 
   // 周期による実効角度の補正
   // 長周期うねりは屈折により斜め方向でもビーチに届きやすい
@@ -70,13 +74,13 @@ export function calculateEffectiveHeight(
  */
 export function calculateBayEffectiveHeight(
   swellHeight: number | null | undefined,
-  swellDir: string,
+  swellDirDeg: number | null | undefined,
   beachFacing: string,
   period: number | null | undefined,
   bayGeometry: BayGeometry
 ): number {
   if (swellHeight === null || swellHeight === undefined) return 0;
-  if (!swellDir || swellDir === '-') return swellHeight;
+  if (swellDirDeg === null || swellDirDeg === undefined) return swellHeight;
 
   // 開けたビーチ(open type)、または岬の少ない広い semi-enclosed は
   // 湾形状の影響が小さく、湾モデルは陸側スウェルを過大評価しがちなので
@@ -84,15 +88,10 @@ export function calculateBayEffectiveHeight(
   const hasSignificantHeadlands = bayGeometry.headlands.length > 0
     && bayGeometry.headlands.some((h) => h.distanceKm < 6);
   if (bayGeometry.type === 'open' || (bayGeometry.openingAngle >= 180 && !hasSignificantHeadlands)) {
-    return calculateEffectiveHeight(swellHeight, swellDir, beachFacing, period);
+    return calculateEffectiveHeight(swellHeight, swellDirDeg, beachFacing, period);
   }
 
-  const swellIdx = DIRS.indexOf(swellDir as Dir);
-  if (swellIdx === -1) {
-    return calculateEffectiveHeight(swellHeight, swellDir, beachFacing, period);
-  }
-
-  const swellDeg = swellIdx * 22.5;
+  const swellDeg = normalizeDeg(swellDirDeg);
 
   // 湾口からの角度差を計算
   let angleDiff = Math.abs(swellDeg - bayGeometry.openingDir);
@@ -457,15 +456,16 @@ export function analyzeSwellComponents(params: {
 } {
   const { swellHeight, swellDir, swellPeriod, windWaveHeight, windWaveDir, windWavePeriod, beachFacing, bayGeometry } = params;
 
+  // 減衰計算は生の度数で行い、16方位文字列は表示用にのみ使う
   const swellDirStr = degreesToDir(swellDir);
   const windWaveDirStr = degreesToDir(windWaveDir);
 
   const effSwell = bayGeometry
-    ? calculateBayEffectiveHeight(swellHeight, swellDirStr, beachFacing, swellPeriod, bayGeometry)
-    : calculateEffectiveHeight(swellHeight, swellDirStr, beachFacing, swellPeriod);
+    ? calculateBayEffectiveHeight(swellHeight, swellDir, beachFacing, swellPeriod, bayGeometry)
+    : calculateEffectiveHeight(swellHeight, swellDir, beachFacing, swellPeriod);
   const effWindWave = bayGeometry
-    ? calculateBayEffectiveHeight(windWaveHeight, windWaveDirStr, beachFacing, windWavePeriod, bayGeometry)
-    : calculateEffectiveHeight(windWaveHeight, windWaveDirStr, beachFacing, windWavePeriod);
+    ? calculateBayEffectiveHeight(windWaveHeight, windWaveDir, beachFacing, windWavePeriod, bayGeometry)
+    : calculateEffectiveHeight(windWaveHeight, windWaveDir, beachFacing, windWavePeriod);
 
   // 波エネルギーの合成（二乗和の平方根）
   const combined = Math.sqrt(effSwell ** 2 + effWindWave ** 2);
@@ -480,6 +480,32 @@ export function analyzeSwellComponents(params: {
     dominantDirStr: isSwellDominant ? swellDirStr : windWaveDirStr,
     isSwellDominant,
   };
+}
+
+// 砕波高の周期補正（shoaling）の基準周期
+export const SHOALING_REFERENCE_PERIOD = 8;
+
+/**
+ * 砕波高の周期補正係数（shoaling）
+ *
+ * 沖波が浅瀬で砕けるとき、長周期のうねりほど大きく盛り上がって割れる。
+ * Komar & Gaughan (1972) の砕波高近似 Hb ∝ (T·H0²)^0.4 のうち周期依存部分
+ * (T/T_ref)^0.4 を、基準周期 8 秒 = 1.0 で正規化した相対係数として使う。
+ *
+ * - 8秒 → 1.00（従来のサイズ感を維持）
+ * - 12秒 → 約1.18、15秒 → 約1.29
+ * - 8秒未満は 1.0 に据え置き。短周期の弱さは既存の減点ロジック
+ *   （calculateQuality の短周期ペナルティ、breakProfile.shortPeriodHeightFactor）
+ *   が担っており、ここで下げると二重減点になる
+ * - 上限 1.35（約17秒で頭打ち）
+ */
+export function getShoalingFactor(period: number | null | undefined): number {
+  if (period === null || period === undefined || period <= SHOALING_REFERENCE_PERIOD) return 1.0;
+  return Math.min(1.35, Math.pow(period / SHOALING_REFERENCE_PERIOD, 0.4));
+}
+
+export function applyShoalingFactor(height: number, period: number | null | undefined): number {
+  return Math.round(height * getShoalingFactor(period) * 100) / 100;
 }
 
 export function applyBreakProfileHeightFactor(
