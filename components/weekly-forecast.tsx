@@ -70,7 +70,9 @@ export default function WeeklyForecast({ data }: WeeklyForecastProps) {
                 <p className="text-[12px] font-semibold text-[#0d1b2a] leading-snug">{day.waveLabel}</p>
                 <div className="flex items-center gap-1">
                   <Waves size={9} className="text-[#9E9EA0]" />
-                  <span className="text-[10px] text-[#9E9EA0]">{day.rawWaveHeight.toFixed(1)}m</span>
+                  {/* メインの当日予報（heightMeters=体感サイズ）と揃えるため、
+                      生波高ではなく砕波補正後の waveHeight を表示する */}
+                  <span className="text-[10px] text-[#9E9EA0]">{day.waveHeight.toFixed(1)}m</span>
                 </div>
               </div>
             </div>
