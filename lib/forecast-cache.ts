@@ -53,8 +53,19 @@ export async function writeSpotCache(spotId: string, data: SurfPointDetail): Pro
   }
 }
 
-export function classifyFreshness(fetchedAt: number): 'fresh' | 'stale' {
-  return Date.now() - fetchedAt <= FRESH_TTL_MS ? 'fresh' : 'stale';
+// open-meteo は timezone=Asia/Tokyo で「今日」始まりの daily を返すため、
+// キャッシュの新鮮さも JST の暦日で判定する必要がある。
+const JST_OFFSET_MS = 9 * 60 * 60 * 1000;
+
+function jstDayIndex(epochMs: number): number {
+  return Math.floor((epochMs + JST_OFFSET_MS) / (24 * 60 * 60 * 1000));
+}
+
+export function classifyFreshness(fetchedAt: number, now: number = Date.now()): 'fresh' | 'stale' {
+  // JST の日付をまたいだキャッシュは、経過時間が短くても stale として扱う。
+  // そうしないと週間予報の先頭に前日が残り続ける（例: 23:30取得 → 翌0:15閲覧）。
+  if (jstDayIndex(fetchedAt) !== jstDayIndex(now)) return 'stale';
+  return now - fetchedAt <= FRESH_TTL_MS ? 'fresh' : 'stale';
 }
 
 export function isCacheConfigured(): boolean {
