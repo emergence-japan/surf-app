@@ -106,17 +106,26 @@ async function fetchExternalData(point: SurfPoint) {
 }
 
 function resolveCurrentConditions(windRes: WeatherResponse, waveRes: MarineResponse, currentIndex: number, point: SurfPoint) {
-  let curWave = waveRes.current?.wave_height ?? null;
-  if (curWave === null && waveRes.hourly.wave_height_gwam) curWave = waveRes.hourly.wave_height_gwam[currentIndex] ?? null;
+  // 「今の波」は hourly（2モデル平均, best_match+gwam）の現在時刻インデックスを使う。
+  // open-meteo の current は単一モデルのみでサフィックス指定ができず、hourly/daily の
+  // アンサンブル平均と数値がズレるため、current フィールドは使わない（トップの現在値と
+  // 週間予報テーブルの現在時刻の値を一致させる）。
+  const hWaveHeight = ensembleAvg(waveRes.hourly.wave_height_marine_best_match, waveRes.hourly.wave_height_gwam, waveRes.hourly.wave_height);
+  const hWavePeriod = ensembleAvg(waveRes.hourly.wave_period_marine_best_match, waveRes.hourly.wave_period_gwam, waveRes.hourly.wave_period);
+  const hWaveDir: (number | null)[] | null = waveRes.hourly.wave_direction_marine_best_match ?? waveRes.hourly.wave_direction_gwam ?? waveRes.hourly.wave_direction ?? null;
+  const hWindSpeed: (number | null)[] | null = ensembleAvg(windRes.hourly?.wind_speed_10m_jma_msm, windRes.hourly?.wind_speed_10m_gfs_seamless, windRes.hourly?.wind_speed_10m);
+  const hWindDir: (number | null)[] | null = windRes.hourly?.wind_direction_10m_jma_msm ?? windRes.hourly?.wind_direction_10m_gfs_seamless ?? windRes.hourly?.wind_direction_10m ?? null;
+  const hSwellHeight = ensembleAvg(waveRes.hourly.swell_wave_height_marine_best_match, waveRes.hourly.swell_wave_height_gwam, waveRes.hourly.swell_wave_height);
+  const hSwellDir: (number | null)[] | null = waveRes.hourly.swell_wave_direction_marine_best_match ?? waveRes.hourly.swell_wave_direction_gwam ?? waveRes.hourly.swell_wave_direction ?? null;
+  const hSwellPeriod = ensembleAvg(waveRes.hourly.swell_wave_period_marine_best_match, waveRes.hourly.swell_wave_period_gwam, waveRes.hourly.swell_wave_period);
+  const hWindWaveHeight = ensembleAvg(waveRes.hourly.wind_wave_height_marine_best_match, waveRes.hourly.wind_wave_height_gwam, waveRes.hourly.wind_wave_height);
+  const hWindWaveDir: (number | null)[] | null = waveRes.hourly.wind_wave_direction_marine_best_match ?? waveRes.hourly.wind_wave_direction_gwam ?? waveRes.hourly.wind_wave_direction ?? null;
+  const hWindWavePeriod = ensembleAvg(waveRes.hourly.wind_wave_period_marine_best_match, waveRes.hourly.wind_wave_period_gwam, waveRes.hourly.wind_wave_period);
 
-  let curWaveDir = waveRes.current?.wave_direction ?? null;
-  if (curWaveDir === null && waveRes.hourly.wave_direction_gwam) curWaveDir = waveRes.hourly.wave_direction_gwam[currentIndex] ?? null;
-
-  // 注: open-meteo の current は複数モデル指定でもサフィックスなしの単一値
-  // （best_match 相当）しか返さない。current は単一値で扱う。
-  // hourly / daily は 2 モデルを平均する（buildHourlyData / buildDailyData 参照）。
-  const curWindSpd = windRes.current?.wind_speed_10m ?? null;
-  const curWindDir = windRes.current?.wind_direction_10m ?? null;
+  const curWave = hWaveHeight?.[currentIndex] ?? null;
+  const curWaveDir = hWaveDir?.[currentIndex] ?? null;
+  const curWindSpd = hWindSpeed?.[currentIndex] ?? null;
+  const curWindDir = hWindDir?.[currentIndex] ?? null;
 
   // 水温: 欠損時は 0℃ ではなく null（不明）にする。0℃ を実在値として表示しない。
   let curTemp: number | null = null;
@@ -138,25 +147,26 @@ function resolveCurrentConditions(windRes: WeatherResponse, waveRes: MarineRespo
   const windDirStr = degreesToDir(curWindDir);
   const waveDirStr = degreesToDir(curWaveDir);
 
-  const curSwellHeight    = waveRes.current?.swell_wave_height ?? null;
-  const curSwellDir       = waveRes.current?.swell_wave_direction ?? null;
-  const curSwellPeriod    = waveRes.current?.swell_wave_period ?? null;
-  const curWindWaveHeight = waveRes.current?.wind_wave_height ?? null;
-  const curWindWaveDir    = waveRes.current?.wind_wave_direction ?? null;
-  const curWindWavePeriod = waveRes.current?.wind_wave_period ?? null;
+  const curSwellHeight    = hSwellHeight?.[currentIndex] ?? null;
+  const curSwellDir       = hSwellDir?.[currentIndex] ?? null;
+  const curSwellPeriod    = hSwellPeriod?.[currentIndex] ?? null;
+  const curWindWaveHeight = hWindWaveHeight?.[currentIndex] ?? null;
+  const curWindWaveDir    = hWindWaveDir?.[currentIndex] ?? null;
+  const curWindWavePeriod = hWindWavePeriod?.[currentIndex] ?? null;
 
   const hasSwellData = curSwellHeight !== null || curWindWaveHeight !== null;
   const swellAnalysis = hasSwellData
     ? analyzeSwellComponents({ swellHeight: curSwellHeight, swellDir: curSwellDir, swellPeriod: curSwellPeriod, windWaveHeight: curWindWaveHeight, windWaveDir: curWindWaveDir, windWavePeriod: curWindWavePeriod, beachFacing: point.beachFacing, bayGeometry: point.bayGeometry })
     : null;
 
+  const curWavePeriod = hWavePeriod?.[currentIndex] ?? null;
   const rawEffectiveHeight = swellAnalysis
     ? swellAnalysis.combinedEffectiveHeight
     : (point.bayGeometry
-        ? calculateBayEffectiveHeight(curWave, curWaveDir, point.beachFacing, waveRes.current?.wave_period ?? null, point.bayGeometry)
-        : calculateEffectiveHeight(curWave, curWaveDir, point.beachFacing, waveRes.current?.wave_period));
+        ? calculateBayEffectiveHeight(curWave, curWaveDir, point.beachFacing, curWavePeriod, point.bayGeometry)
+        : calculateEffectiveHeight(curWave, curWaveDir, point.beachFacing, curWavePeriod ?? undefined));
 
-  const curPeriod = swellAnalysis ? swellAnalysis.dominantPeriod : (waveRes.current?.wave_period ?? 0);
+  const curPeriod = swellAnalysis ? swellAnalysis.dominantPeriod : (curWavePeriod ?? 0);
   // 長周期うねりは砕波時に盛り上がるため、体感サイズへ増幅補正してから
   // スポット別の減衰補正（breakProfile）を掛ける
   const effectiveHeight = applyBreakProfileHeightFactor(applyShoalingFactor(rawEffectiveHeight, curPeriod), curPeriod, point.breakProfile);

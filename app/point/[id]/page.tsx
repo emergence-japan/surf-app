@@ -179,11 +179,11 @@ export default function PointDetail() {
     const now = new Date();
     // 次の正時を起点にする
     const nextHourMs = Math.ceil(now.getTime() / (60 * 60 * 1000)) * (60 * 60 * 1000);
+    // 過去データにはフォールバックしない（週間予報テーブルと表示範囲を合わせる）
     const future = point.hourly.filter(h => h?.time && new Date(h.time).getTime() >= nextHourMs);
-    const source = future.length >= 8 ? future : point.hourly;
-    // 3時間刻みで48時間先まで（最大16コマ）
-    return source
-      .filter((_, i) => i % 3 === 0)
+    // 3時間刻み（実時刻が3の倍数）で48時間先まで（最大16コマ）。週間予報テーブルの抽出基準と統一。
+    return future
+      .filter(h => new Date(h.time).getHours() % 3 === 0)
       .slice(0, 16)
       .map((h, i) => ({
         id: `${point.id}-h-${i}`,
